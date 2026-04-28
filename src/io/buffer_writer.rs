@@ -1,5 +1,6 @@
 use bytes::{BytesMut, BufMut, Bytes};
 
+#[derive(Clone)]
 pub struct BufferWriter {
     buffer: BytesMut,
 }

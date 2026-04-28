@@ -10,3 +10,7 @@ pub mod workbook_reader;
 pub use record_types::RecordType;
 pub use sst_table::SstTable;
 pub use styles_registry::StylesRegistry;
+pub use workbook_writer::WorkbookWriter;
+pub use workbook_reader::WorkbookReader;
+pub use sheet_writer::SheetWriter;
+pub use sheet_reader::SheetReader;

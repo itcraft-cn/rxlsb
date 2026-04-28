@@ -5,3 +5,5 @@ pub mod rels_gen;
 
 pub use zip_reader::XlsbContainerReader;
 pub use zip_writer::XlsbContainerWriter;
+pub use xml_gen::XmlGen;
+pub use rels_gen::RelsGen;
