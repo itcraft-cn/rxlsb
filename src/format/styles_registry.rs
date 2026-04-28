@@ -11,16 +11,17 @@ impl StylesRegistry {
     pub fn serialize(&self) -> Result<Bytes> {
         let mut writer = BufferWriter::new(2048);
         
-        writer.write_varint(RecordType::BrtBeginStyleSheet.to_u32());
+        writer.write_varint(RecordType::BrtBeginCellStyleXFs.to_u32());
         writer.write_varsize(0);
         
         Self::write_formats(&mut writer)?;
         Self::write_fonts(&mut writer)?;
         Self::write_fills(&mut writer)?;
         Self::write_borders(&mut writer)?;
-        Self::write_cell_style_xfs(&mut writer)?;
+        Self::write_xfs(&mut writer)?;
+        Self::write_styles(&mut writer)?;
         
-        writer.write_varint(RecordType::BrtEndStyleSheet.to_u32());
+        writer.write_varint(RecordType::BrtEndCellStyleXFs.to_u32());
         writer.write_varsize(0);
         
         Ok(writer.freeze())
@@ -42,7 +43,7 @@ impl StylesRegistry {
         writer.write_u32_le(1);
         
         writer.write_varint(RecordType::BrtFont.to_u32());
-        writer.write_varsize(28);
+        writer.write_varsize(29);
         writer.write_bytes(&[
             0xDC, 0x00, 0x00, 0x00,
             0x90, 0x01, 0x00, 0x00,
@@ -92,11 +93,7 @@ impl StylesRegistry {
         Ok(())
     }
     
-    fn write_cell_style_xfs(writer: &mut BufferWriter) -> Result<()> {
-        writer.write_varint(RecordType::BrtBeginCellStyleXFs.to_u32());
-        writer.write_varsize(4);
-        writer.write_u32_le(1);
-        
+    fn write_xfs(writer: &mut BufferWriter) -> Result<()> {
         writer.write_varint(RecordType::BrtBeginXFs.to_u32());
         writer.write_varsize(4);
         writer.write_u32_le(1);
@@ -112,7 +109,10 @@ impl StylesRegistry {
         
         writer.write_varint(RecordType::BrtEndXFs.to_u32());
         writer.write_varsize(0);
-        
+        Ok(())
+    }
+    
+    fn write_styles(writer: &mut BufferWriter) -> Result<()> {
         writer.write_varint(RecordType::BrtBeginStyles.to_u32());
         writer.write_varsize(4);
         writer.write_u32_le(1);
@@ -127,9 +127,6 @@ impl StylesRegistry {
         ]);
         
         writer.write_varint(RecordType::BrtEndStyles.to_u32());
-        writer.write_varsize(0);
-        
-        writer.write_varint(RecordType::BrtEndCellStyleXFs.to_u32());
         writer.write_varsize(0);
         Ok(())
     }
