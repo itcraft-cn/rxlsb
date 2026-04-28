@@ -25,10 +25,12 @@ impl<'a> SheetWriter<'a> {
     
     pub fn write_batch(&mut self, supplier: impl CellSupplier,
                        row_count: usize, col_count: usize) -> Result<()> {
-        self.buffer.ensure_capacity(row_count * col_count * 20);
+        self.buffer.ensure_capacity(row_count * col_count * 30 + 2048);
         
         self.write_empty_record(RecordType::BrtBeginSheet)?;
-        self.write_dimension(0, 0, row_count - 1, col_count - 1)?;
+        self.write_ws_prop()?;
+        self.write_dimension(0, 0, row_count.saturating_sub(1), col_count.saturating_sub(1))?;
+        self.write_view_records()?;
         self.write_empty_record(RecordType::BrtBeginSheetData)?;
         
         for row in 0..row_count {
@@ -40,10 +42,78 @@ impl<'a> SheetWriter<'a> {
         }
         
         self.write_empty_record(RecordType::BrtEndSheetData)?;
+        self.write_page_setup_records()?;
         self.write_empty_record(RecordType::BrtEndSheet)?;
         
         self.max_row = row_count;
         self.max_col = col_count;
+        Ok(())
+    }
+    
+    fn write_ws_prop(&mut self) -> Result<()> {
+        self.buffer.write_varint(RecordType::BrtWsProp.to_u32());
+        self.buffer.write_varsize(23);
+        self.buffer.write_bytes(&[
+            0xC9, 0x04, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00
+        ]);
+        Ok(())
+    }
+    
+    fn write_view_records(&mut self) -> Result<()> {
+        self.write_empty_record(RecordType::BrtBeginWsViews)?;
+        
+        self.buffer.write_varint(RecordType::BrtBeginWsView.to_u32());
+        self.buffer.write_varsize(30);
+        self.buffer.write_bytes(&[
+            0xDC, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x40, 0x00, 0x00, 0x00, 0x64, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+        ]);
+        
+        self.buffer.write_varint(RecordType::BrtSel.to_u32());
+        self.buffer.write_varsize(36);
+        self.buffer.write_bytes(&[
+            0x03, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00,
+            0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x01, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00,
+            0x06, 0x00, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00,
+            0x07, 0x00, 0x00, 0x00
+        ]);
+        
+        self.write_empty_record(RecordType::BrtEndWsView)?;
+        self.write_empty_record(RecordType::BrtEndWsViews)?;
+        
+        self.buffer.write_varint(RecordType::BrtWsFmtInfo.to_u32());
+        self.buffer.write_varsize(12);
+        self.buffer.write_bytes(&[
+            0x00, 0x09, 0x00, 0x00, 0x08, 0x00, 0x0E, 0x01,
+            0x00, 0x00, 0x00, 0x00
+        ]);
+        
+        Ok(())
+    }
+    
+    fn write_page_setup_records(&mut self) -> Result<()> {
+        self.buffer.write_varint(RecordType::BrtDrawing.to_u32());
+        self.buffer.write_varsize(66);
+        self.buffer.write_bytes(&[
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
+            0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x01, 0x00, 0x00, 0x00
+        ]);
+        
+        self.buffer.write_varint(RecordType::BrtPageSetupView.to_u32());
+        self.buffer.write_varsize(2);
+        self.buffer.write_bytes(&[0x10, 0x00]);
+        
         Ok(())
     }
     
