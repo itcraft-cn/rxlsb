@@ -42,7 +42,6 @@ impl<'a> SheetWriter<'a> {
         }
         
         self.write_empty_record(RecordType::BrtEndSheetData)?;
-        self.write_page_setup_records()?;
         self.write_empty_record(RecordType::BrtEndSheet)?;
         
         self.max_row = row_count;
@@ -98,7 +97,7 @@ impl<'a> SheetWriter<'a> {
     
     fn write_page_setup_records(&mut self) -> Result<()> {
         self.buffer.write_varint(RecordType::BrtDrawing.to_u32());
-        self.buffer.write_varsize(66);
+        self.buffer.write_varsize(62);
         self.buffer.write_bytes(&[
             0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
             0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -113,6 +112,17 @@ impl<'a> SheetWriter<'a> {
         self.buffer.write_varint(RecordType::BrtPageSetupView.to_u32());
         self.buffer.write_varsize(2);
         self.buffer.write_bytes(&[0x10, 0x00]);
+        
+        self.buffer.write_varint(RecordType::BrtPageSetup.to_u32());
+        self.buffer.write_varsize(47);
+        self.buffer.write_bytes(&[
+            0x00, 0x00, 0x00, 0x00, 0x00, 0xE8, 0x3F, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0xE8, 0x3F, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0xF0, 0x3F, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0xF0, 0x3F, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0xE0, 0x3F, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0xE0, 0x3F
+        ]);
         
         Ok(())
     }

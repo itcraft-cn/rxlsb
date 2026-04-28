@@ -76,7 +76,7 @@ impl WorkbookWriter {
     
     fn write_brt_file_version(&self, writer: &mut BufferWriter) {
         writer.write_varint(128);
-        writer.write_varsize(44);
+        writer.write_varsize(47);
         writer.write_bytes(&[
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00,
