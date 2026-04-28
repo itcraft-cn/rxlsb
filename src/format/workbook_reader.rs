@@ -18,8 +18,8 @@ impl WorkbookReader {
         let mut sheets = vec![];
         
         while reader.has_remaining() {
-            let record_type_code = reader.read_u32_le()?;
-            let size = reader.read_u32_le()?;
+            let record_type_code = reader.read_varint()?;
+            let size = reader.read_varsize()?;
             
             let record_type = RecordType::from_u32(record_type_code);
             
@@ -28,7 +28,8 @@ impl WorkbookReader {
                 }
                 
                 Some(RecordType::BrtBundleSh) => {
-                    reader.skip(16)?;
+                    reader.skip(8)?;
+                    let _rel_id = reader.read_wide_string()?;
                     let name = reader.read_wide_string()?;
                     let index = sheets.len();
                     sheets.push(SheetInfo { index, name });
@@ -36,10 +37,6 @@ impl WorkbookReader {
                 
                 Some(RecordType::BrtEndBook) => {
                     break;
-                }
-                
-                Some(RecordType::BrtRowHdr) => {
-                    reader.skip(size as usize)?;
                 }
                 
                 _ => {

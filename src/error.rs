@@ -37,6 +37,9 @@ pub enum XlsbError {
     
     #[error("路径未设置")]
     PathNotSet,
+    
+    #[error("无效格式: {0}")]
+    InvalidFormat(String),
 }
 
 pub type Result<T> = std::result::Result<T, XlsbError>;

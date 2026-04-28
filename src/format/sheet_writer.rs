@@ -32,7 +32,7 @@ impl<'a> SheetWriter<'a> {
         self.write_empty_record(RecordType::BrtBeginSheetData)?;
         
         for row in 0..row_count {
-            self.write_row_header(row, 0, col_count - 1)?;
+            self.write_row_header(row, col_count)?;
             for col in 0..col_count {
                 let cell_data = supplier.get_cell(row, col);
                 self.write_cell(row as u32, col as u32, cell_data)?;
@@ -48,15 +48,15 @@ impl<'a> SheetWriter<'a> {
     }
     
     fn write_empty_record(&mut self, record_type: RecordType) -> Result<()> {
-        self.buffer.write_u32_le(record_type.to_u32());
-        self.buffer.write_u32_le(0);
+        self.buffer.write_varint(record_type.to_u32());
+        self.buffer.write_varsize(0);
         Ok(())
     }
     
     fn write_dimension(&mut self, first_row: usize, first_col: usize,
                        last_row: usize, last_col: usize) -> Result<()> {
-        self.buffer.write_u32_le(RecordType::BrtWsDim.to_u32());
-        self.buffer.write_u32_le(16);
+        self.buffer.write_varint(RecordType::BrtWsDim.to_u32());
+        self.buffer.write_varsize(16);
         self.buffer.write_u32_le(first_row as u32);
         self.buffer.write_u32_le(first_col as u32);
         self.buffer.write_u32_le(last_row as u32);
@@ -64,12 +64,30 @@ impl<'a> SheetWriter<'a> {
         Ok(())
     }
     
-    fn write_row_header(&mut self, row: usize, first_col: usize, last_col: usize) -> Result<()> {
-        self.buffer.write_u32_le(RecordType::BrtRowHdr.to_u32());
-        self.buffer.write_u32_le(16);
+    fn write_row_header(&mut self, row: usize, col_count: usize) -> Result<()> {
+        let num_spans = if col_count > 0 {
+            (col_count - 1) / 1024 + 1
+        } else {
+            0
+        };
+        
+        let record_size = 4 + 4 + 2 + 3 + 4 + (num_spans * 8);
+        
+        self.buffer.write_varint(RecordType::BrtRowHdr.to_u32());
+        self.buffer.write_varsize(record_size as u32);
         self.buffer.write_u32_le(row as u32);
-        self.buffer.write_u32_le(first_col as u32);
-        self.buffer.write_u32_le((last_col - first_col + 1) as u32);
+        self.buffer.write_u32_le(0);
+        self.buffer.write_u16_le(270);
+        self.buffer.write_bytes(&[0x00, 0x00, 0x00]);
+        self.buffer.write_u32_le(num_spans as u32);
+        
+        for seg in 0..num_spans {
+            let seg_start_col = seg * 1024;
+            let seg_end_col = std::cmp::min((seg + 1) * 1024 - 1, col_count - 1);
+            self.buffer.write_u32_le(seg_start_col as u32);
+            self.buffer.write_u32_le(seg_end_col as u32);
+        }
+        
         Ok(())
     }
     
@@ -103,53 +121,48 @@ impl<'a> SheetWriter<'a> {
         Ok(())
     }
     
-    fn write_cell_real(&mut self, row: u32, col: u32, value: f64) -> Result<()> {
-        self.buffer.write_u32_le(RecordType::BrtCellReal.to_u32());
-        self.buffer.write_u32_le(24);
-        self.buffer.write_u32_le(row);
+    fn write_cell_real(&mut self, _row: u32, col: u32, value: f64) -> Result<()> {
+        self.buffer.write_varint(RecordType::BrtCellReal.to_u32());
+        self.buffer.write_varsize(16);
         self.buffer.write_u32_le(col);
-        self.buffer.write_u32_le(0);
+        self.buffer.write_bytes(&[0x00, 0x00, 0x00, 0x00]);
         self.buffer.write_f64_le(value);
         Ok(())
     }
     
-    fn write_cell_st(&mut self, row: u32, col: u32, s: &str) -> Result<()> {
+    fn write_cell_st(&mut self, _row: u32, col: u32, s: &str) -> Result<()> {
         let string_size = BufferWriter::utf16le_byte_length(s) + BufferWriter::varint_size(s.encode_utf16().count() as u32);
-        self.buffer.write_u32_le(RecordType::BrtCellSt.to_u32());
-        self.buffer.write_u32_le((12 + string_size) as u32);
-        self.buffer.write_u32_le(row);
+        self.buffer.write_varint(RecordType::BrtCellSt.to_u32());
+        self.buffer.write_varsize((8 + string_size) as u32);
         self.buffer.write_u32_le(col);
-        self.buffer.write_u32_le(0);
+        self.buffer.write_bytes(&[0x00, 0x00, 0x00, 0x00]);
         self.buffer.write_wide_string(s);
         Ok(())
     }
     
-    fn write_cell_isst(&mut self, row: u32, col: u32, sst_idx: u32) -> Result<()> {
-        self.buffer.write_u32_le(RecordType::BrtCellIsst.to_u32());
-        self.buffer.write_u32_le(16);
-        self.buffer.write_u32_le(row);
+    fn write_cell_isst(&mut self, _row: u32, col: u32, sst_idx: u32) -> Result<()> {
+        self.buffer.write_varint(RecordType::BrtCellIsst.to_u32());
+        self.buffer.write_varsize(12);
         self.buffer.write_u32_le(col);
-        self.buffer.write_u32_le(0);
-        self.buffer.write_varint(sst_idx);
+        self.buffer.write_bytes(&[0x00, 0x00, 0x00, 0x00]);
+        self.buffer.write_u32_le(sst_idx);
         Ok(())
     }
     
-    fn write_cell_bool(&mut self, row: u32, col: u32, value: bool) -> Result<()> {
-        self.buffer.write_u32_le(RecordType::BrtCellBool.to_u32());
-        self.buffer.write_u32_le(13);
-        self.buffer.write_u32_le(row);
+    fn write_cell_bool(&mut self, _row: u32, col: u32, value: bool) -> Result<()> {
+        self.buffer.write_varint(RecordType::BrtCellBool.to_u32());
+        self.buffer.write_varsize(9);
         self.buffer.write_u32_le(col);
-        self.buffer.write_u32_le(0);
+        self.buffer.write_bytes(&[0x00, 0x00, 0x00]);
         self.buffer.write_u8(value as u8);
         Ok(())
     }
     
-    fn write_cell_blank(&mut self, row: u32, col: u32) -> Result<()> {
-        self.buffer.write_u32_le(RecordType::BrtCellBlank.to_u32());
-        self.buffer.write_u32_le(12);
-        self.buffer.write_u32_le(row);
+    fn write_cell_blank(&mut self, _row: u32, col: u32) -> Result<()> {
+        self.buffer.write_varint(RecordType::BrtCellBlank.to_u32());
+        self.buffer.write_varsize(8);
         self.buffer.write_u32_le(col);
-        self.buffer.write_u32_le(0);
+        self.buffer.write_bytes(&[0x00, 0x00, 0x00, 0x00]);
         Ok(())
     }
     

@@ -39,21 +39,36 @@ impl BufferWriter {
     }
     
     pub fn write_varint(&mut self, value: u32) -> usize {
-        let mut written = 0;
-        let mut v = value;
-        loop {
-            let byte = (v & 0x7F) as u8;
-            v >>= 7;
-            if v != 0 {
-                self.write_u8(byte | 0x80);
-                written += 1;
-            } else {
-                self.write_u8(byte);
-                written += 1;
-                break;
-            }
+        if value >= 128 {
+            self.write_u8(((value & 0x7F) as u8) | 0x80);
+            self.write_u8(((value >> 7) as u8) & 0x7F);
+            2
+        } else {
+            self.write_u8(value as u8);
+            1
         }
-        written
+    }
+    
+    pub fn write_varsize(&mut self, value: u32) -> usize {
+        if value < 128 {
+            self.write_u8(value as u8);
+            1
+        } else if value < 16384 {
+            self.write_u8(((value & 0x7F) as u8) | 0x80);
+            self.write_u8(((value >> 7) as u8) & 0x7F);
+            2
+        } else if value < 2097152 {
+            self.write_u8(((value & 0x7F) as u8) | 0x80);
+            self.write_u8((((value >> 7) & 0x7F) as u8) | 0x80);
+            self.write_u8(((value >> 14) as u8) & 0x7F);
+            3
+        } else {
+            self.write_u8(((value & 0x7F) as u8) | 0x80);
+            self.write_u8((((value >> 7) & 0x7F) as u8) | 0x80);
+            self.write_u8((((value >> 14) & 0x7F) as u8) | 0x80);
+            self.write_u8(((value >> 21) as u8) & 0x7F);
+            4
+        }
     }
     
     pub fn write_wide_string(&mut self, s: &str) -> usize {

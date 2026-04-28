@@ -99,16 +99,29 @@ impl BufferReader {
     }
     
     pub fn read_varint(&mut self) -> Result<u32> {
-        let mut result = 0u32;
-        let mut shift = 0;
-        loop {
-            let byte = self.read_u8()?;
-            result |= ((byte & 0x7F) as u32) << shift;
-            if byte & 0x80 == 0 { break; }
-            shift += 7;
-            if shift >= 32 { return Err(XlsbError::InvalidVarInt); }
+        let b0 = self.read_u8()?;
+        if (b0 & 0x80) == 0 {
+            return Ok(b0 as u32);
         }
-        Ok(result)
+        let b1 = self.read_u8()?;
+        Ok(((b0 & 0x7F) as u32) | ((b1 as u32) << 7))
+    }
+    
+    pub fn read_varsize(&mut self) -> Result<u32> {
+        let b0 = self.read_u8()?;
+        if (b0 & 0x80) == 0 {
+            return Ok(b0 as u32);
+        }
+        let b1 = self.read_u8()?;
+        if (b1 & 0x80) == 0 {
+            return Ok(((b0 & 0x7F) as u32) | ((b1 as u32) << 7));
+        }
+        let b2 = self.read_u8()?;
+        if (b2 & 0x80) == 0 {
+            return Ok(((b0 & 0x7F) as u32) | (((b1 & 0x7F) as u32) << 7) | ((b2 as u32) << 14));
+        }
+        let b3 = self.read_u8()?;
+        Ok(((b0 & 0x7F) as u32) | (((b1 & 0x7F) as u32) << 7) | (((b2 & 0x7F) as u32) << 14) | ((b3 as u32) << 21))
     }
     
     pub fn read_wide_string(&mut self) -> Result<String> {
