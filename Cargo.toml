@@ -1,0 +1,15 @@
+[package]
+name = "rxlsb"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Pure Rust XLSB (Excel Binary Workbook) reader/writer library"
+
+[dependencies]
+zip = "0.6"
+bytes = "1.5"
+thiserror = "1.0"
+chrono = "0.4"
+
+[dev-dependencies]
+tempfile = "3.8"
