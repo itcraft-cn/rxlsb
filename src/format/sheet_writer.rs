@@ -128,8 +128,8 @@ impl<'a> SheetWriter<'a> {
         self.buffer.write_varint(RecordType::BrtWsDim.to_u32());
         self.buffer.write_varsize(16);
         self.buffer.write_u32_le(first_row as u32);
-        self.buffer.write_u32_le(first_col as u32);
         self.buffer.write_u32_le(last_row as u32);
+        self.buffer.write_u32_le(first_col as u32);
         self.buffer.write_u32_le(last_col as u32);
         Ok(())
     }

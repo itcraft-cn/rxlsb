@@ -48,18 +48,26 @@ impl SstTable {
     pub fn serialize(&self) -> Result<Bytes> {
         let mut writer = BufferWriter::new(1024);
         
-        writer.write_u32_le(RecordType::BrtBeginSst.to_u32());
-        writer.write_u32_le(0);
+        writer.write_varint(RecordType::BrtBeginSst.to_u32());
+        writer.write_varsize(8);
+        writer.write_u32_le(self.total_count);
+        writer.write_u32_le(self.strings.len() as u32);
         
         for s in &self.strings {
-            let string_size = BufferWriter::utf16le_byte_length(s) + BufferWriter::varint_size(s.encode_utf16().count() as u32);
-            writer.write_u32_le(RecordType::BrtSstItem.to_u32());
-            writer.write_u32_le(string_size as u32);
-            writer.write_wide_string(s);
+            let str_len = s.encode_utf16().count();
+            let record_size = 1 + 4 + str_len * 2;
+            
+            writer.write_varint(RecordType::BrtSstItem.to_u32());
+            writer.write_varsize(record_size as u32);
+            writer.write_u8(0);
+            writer.write_u32_le(str_len as u32);
+            for ch in s.encode_utf16() {
+                writer.write_u16_le(ch);
+            }
         }
         
-        writer.write_u32_le(RecordType::BrtEndSst.to_u32());
-        writer.write_u32_le(0);
+        writer.write_varint(RecordType::BrtEndSst.to_u32());
+        writer.write_varsize(0);
         
         Ok(writer.freeze())
     }
