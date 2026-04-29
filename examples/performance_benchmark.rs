@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::time::Instant;
 use std::fs;
 
-const TOTAL_ROWS: usize = 1_000_000;
+const TOTAL_ROWS: usize = 1_000;
 const COLUMN_COUNT: usize = 10;
 const PAGE_SIZE: usize = 1000;
 

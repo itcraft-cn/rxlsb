@@ -78,10 +78,11 @@ impl XlsbWriter {
             streaming.rows_data.resize(end_row, vec![CellData::Blank; streaming.col_count]);
         }
         
-        for row in start_row..end_row {
+        for row_idx in 0..row_count {
+            let abs_row = start_row + row_idx;
             for col in 0..streaming.col_count {
-                let cell = supplier.get_cell(row, col);
-                streaming.rows_data[row][col] = cell;
+                let cell = supplier.get_cell(row_idx, col);
+                streaming.rows_data[abs_row][col] = cell;
             }
         }
         
