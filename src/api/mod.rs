@@ -6,4 +6,4 @@ pub mod template;
 pub use cell_data::{CellData, CellError, CellSupplier, RowHandler};
 pub use reader::XlsbReader;
 pub use writer::XlsbWriter;
-pub use template::TemplateFiller;
+pub use template::{TemplateFiller, TemplateFillerBuilder};

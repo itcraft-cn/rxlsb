@@ -40,6 +40,9 @@ pub enum XlsbError {
     
     #[error("无效格式: {0}")]
     InvalidFormat(String),
+    
+    #[error("无效参数: {0}")]
+    InvalidArgument(&'static str),
 }
 
 pub type Result<T> = std::result::Result<T, XlsbError>;

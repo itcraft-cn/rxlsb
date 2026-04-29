@@ -4,6 +4,7 @@ use crate::format::RecordType;
 use bytes::Bytes;
 use crate::error::Result;
 
+#[derive(Clone)]
 pub struct SstTable {
     strings: Vec<String>,
     hash_map: HashMap<String, u32>,

@@ -57,6 +57,9 @@ pub enum RecordType {
     BrtFill = 45,
     BrtBorder = 46,
     BrtXF = 47,
+    BrtMergeCell = 176,
+    BrtBeginMergeCells = 177,
+    BrtEndMergeCells = 178,
 }
 
 impl RecordType {
@@ -119,6 +122,9 @@ impl RecordType {
             45 => Some(RecordType::BrtFill),
             46 => Some(RecordType::BrtBorder),
             47 => Some(RecordType::BrtXF),
+            176 => Some(RecordType::BrtMergeCell),
+            177 => Some(RecordType::BrtBeginMergeCells),
+            178 => Some(RecordType::BrtEndMergeCells),
             _ => None,
         }
     }

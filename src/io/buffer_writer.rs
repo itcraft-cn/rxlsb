@@ -22,6 +22,12 @@ impl BufferWriter {
         self.buffer.put_u32_le(v);
     }
     
+    pub fn write_u24_le(&mut self, v: u32) {
+        self.buffer.put_u8((v & 0xFF) as u8);
+        self.buffer.put_u8(((v >> 8) & 0xFF) as u8);
+        self.buffer.put_u8(((v >> 16) & 0xFF) as u8);
+    }
+    
     pub fn write_u64_le(&mut self, v: u64) {
         self.buffer.put_u64_le(v);
     }
