@@ -182,14 +182,19 @@ impl TemplateFiller {
             container.add_entry_from_bytes(entry, &data)?;
         }
         
+        let sheet_count = self.sheets.len();
+        let mut sheet_datas = Vec::with_capacity(sheet_count);
+        for i in 0..sheet_count {
+            let sheet_data = self.generate_sheet(i)?;
+            sheet_datas.push(sheet_data);
+        }
+        
         let sst_data = self.generate_sst()?;
         container.add_entry_from_bytes("xl/sharedStrings.bin", &sst_data)?;
         
-        let sheet_count = self.sheets.len();
-        for i in 0..sheet_count {
-            let sheet_data = self.generate_sheet(i)?;
+        for (i, sheet_data) in sheet_datas.iter().enumerate() {
             let path = format!("xl/worksheets/sheet{}.bin", i + 1);
-            container.add_entry_from_bytes(&path, &sheet_data)?;
+            container.add_entry_from_bytes(&path, sheet_data)?;
         }
         
         container.finish()?;
@@ -227,7 +232,6 @@ impl TemplateFiller {
         let fill = sheet.fill_result.as_ref();
         
         let mut writer = BufferWriter::new(4096);
-        let mut sst = self.sst.clone();
         
         writer.write_varint(crate::format::RecordType::BrtBeginSheet.to_u32());
         writer.write_varsize(0);
@@ -256,7 +260,7 @@ impl TemplateFiller {
                     for cell in &parser.cells {
                         if cell.row == row {
                             if cell.col < f.start_col || cell.col >= f.start_col + f.col_count {
-                                Self::write_template_cell(&mut writer, &cell, &mut sst);
+                                Self::write_template_cell(&mut writer, &cell, &mut self.sst);
                             }
                         }
                     }
@@ -265,7 +269,7 @@ impl TemplateFiller {
                     for col in f.start_col..f.start_col + f.col_count {
                         let data_col = (col - f.start_col) as usize;
                         if data_row < f.data.len() && data_col < f.data[data_row].len() {
-                            Self::write_cell(&mut writer, col, &f.data[data_row][data_col], &mut sst);
+                            Self::write_cell(&mut writer, col, &f.data[data_row][data_col], &mut self.sst);
                         }
                     }
                     continue;
@@ -274,7 +278,7 @@ impl TemplateFiller {
             
             for cell in &parser.cells {
                 if cell.row == row {
-                    Self::write_template_cell(&mut writer, &cell, &mut sst);
+                    Self::write_template_cell(&mut writer, &cell, &mut self.sst);
                 }
             }
         }
