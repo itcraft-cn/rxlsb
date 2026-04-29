@@ -124,8 +124,22 @@ impl BufferReader {
         Ok(((b0 & 0x7F) as u32) | (((b1 & 0x7F) as u32) << 7) | (((b2 & 0x7F) as u32) << 14) | ((b3 as u32) << 21))
     }
     
-    pub fn read_wide_string(&mut self) -> Result<String> {
+pub fn read_wide_string(&mut self) -> Result<String> {
         let char_count = self.read_varint()? as usize;
+        let byte_count = char_count * 2;
+        
+        let bytes = self.read_bytes(byte_count)?;
+        
+        let chars: Vec<u16> = bytes.chunks_exact(2)
+            .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
+            .collect();
+        
+        String::from_utf16(&chars)
+            .map_err(|_| XlsbError::InvalidUtf16)
+    }
+    
+    pub fn read_wide_string_u32(&mut self) -> Result<String> {
+        let char_count = self.read_u32_le()? as usize;
         let byte_count = char_count * 2;
         
         let bytes = self.read_bytes(byte_count)?;

@@ -29,8 +29,8 @@ impl WorkbookReader {
                 
                 Some(RecordType::BrtBundleSh) => {
                     reader.skip(8)?;
-                    let _rel_id = reader.read_wide_string()?;
-                    let name = reader.read_wide_string()?;
+                    let _rel_id = reader.read_wide_string_u32()?;
+                    let name = reader.read_wide_string_u32()?;
                     let index = sheets.len();
                     sheets.push(SheetInfo { index, name });
                 }
