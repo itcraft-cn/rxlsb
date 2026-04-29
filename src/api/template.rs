@@ -253,6 +253,14 @@ impl TemplateFiller {
             
             if let Some(f) = fill {
                 if row >= f.start_row && row < f.start_row + f.row_count {
+                    for cell in &parser.cells {
+                        if cell.row == row {
+                            if cell.col < f.start_col || cell.col >= f.start_col + f.col_count {
+                                Self::write_template_cell(&mut writer, &cell, &mut sst);
+                            }
+                        }
+                    }
+                    
                     let data_row = (row - f.start_row) as usize;
                     for col in f.start_col..f.start_col + f.col_count {
                         let data_col = (col - f.start_col) as usize;
