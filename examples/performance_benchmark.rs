@@ -10,8 +10,8 @@ const PAGE_SIZE: usize = 1000;
 fn create_cell(row: usize, col: usize) -> CellData {
     match col {
         0 => CellData::text(format!("Name-{}", row)),
-        1 => CellData::text(format!("Category-{}", row % 100)),
-        2 => CellData::text(format!("Region-{}", row % 10)),
+        1 => CellData::text(format!("Cat-{}", row % 100)),
+        2 => CellData::text(format!("R-{}", row % 10)),
         3 => CellData::number(row as f64),
         4 => CellData::number(row as f64 * 10.0),
         5 => CellData::number(row as f64 * 100.0),
