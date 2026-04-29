@@ -10,6 +10,8 @@ pub struct SheetWriter<'a> {
     styles: &'a mut StylesRegistry,
     max_row: usize,
     max_col: usize,
+    streaming_mode: bool,
+    streaming_col_count: usize,
 }
 
 impl<'a> SheetWriter<'a> {
@@ -20,7 +22,74 @@ impl<'a> SheetWriter<'a> {
             styles,
             max_row: 0,
             max_col: 0,
+            streaming_mode: false,
+            streaming_col_count: 0,
         }
+    }
+    
+    pub fn start_streaming(&mut self, col_count: usize) -> Result<()> {
+        self.streaming_mode = true;
+        self.streaming_col_count = col_count;
+        self.max_col = col_count.saturating_sub(1);
+        self.buffer.clear();
+        
+        self.write_empty_record(RecordType::BrtBeginSheet)?;
+        self.write_ws_prop()?;
+        self.write_view_records()?;
+        self.write_empty_record(RecordType::BrtBeginSheetData)?;
+        
+        Ok(())
+    }
+    
+    pub fn append_rows(&mut self, supplier: impl CellSupplier, start_row: usize, row_count: usize) -> Result<()> {
+        let col_count = self.streaming_col_count;
+        
+        for row in start_row..start_row + row_count {
+            self.write_row_header(row, col_count)?;
+            for col in 0..col_count {
+                let cell_data = supplier.get_cell(row, col);
+                self.write_cell(row as u32, col as u32, cell_data)?;
+            }
+            if row > self.max_row {
+                self.max_row = row;
+            }
+        }
+        
+        Ok(())
+    }
+    
+    pub fn finalize_streaming(&mut self, row_count: usize, col_count: usize) -> Result<Bytes> {
+        self.write_empty_record(RecordType::BrtEndSheetData)?;
+        self.write_page_setup_records()?;
+        self.write_empty_record(RecordType::BrtEndSheet)?;
+        
+        let mut final_buffer = BufferWriter::new(self.buffer.len() + 50);
+        
+        final_buffer.write_varint(RecordType::BrtBeginSheet.to_u32());
+        final_buffer.write_varsize(0);
+        final_buffer.write_bytes(&[
+            0xC9, 0x04, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+            0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00
+        ]);
+        
+        self.write_dimension_to(&mut final_buffer, 0, row_count.saturating_sub(1), 0, col_count.saturating_sub(1))?;
+        
+        final_buffer.write_bytes(&self.buffer.clone().freeze());
+        
+        self.streaming_mode = false;
+        Ok(final_buffer.freeze())
+    }
+    
+    fn write_dimension_to(&self, writer: &mut BufferWriter, first_row: usize, first_col: usize,
+                          last_row: usize, last_col: usize) -> Result<()> {
+        writer.write_varint(RecordType::BrtWsDim.to_u32());
+        writer.write_varsize(16);
+        writer.write_u32_le(first_row as u32);
+        writer.write_u32_le(last_row as u32);
+        writer.write_u32_le(first_col as u32);
+        writer.write_u32_le(last_col as u32);
+        Ok(())
     }
     
     pub fn write_batch(&mut self, supplier: impl CellSupplier,

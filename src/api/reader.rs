@@ -50,6 +50,16 @@ impl XlsbReader {
         sheet_reader.for_each_row(handler)?;
         Ok(())
     }
+    
+    pub fn read_rows(&mut self, sheet_idx: usize, start_row: usize, row_count: usize) -> Result<Vec<Vec<CellData>>> {
+        if sheet_idx >= self.workbook.sheet_count() {
+            return Err(XlsbError::InvalidSheetIndex(sheet_idx));
+        }
+        
+        let sheet_data = self.container.get_sheet_data(sheet_idx)?;
+        let mut sheet_reader = SheetReader::new(sheet_data, self.sst.as_ref());
+        sheet_reader.read_rows(start_row, row_count)
+    }
 }
 
 pub struct XlsbReaderBuilder {

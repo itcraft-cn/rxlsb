@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 
+#[derive(Clone, Debug)]
 pub enum CellData {
     Text(String),
     Number(f64),
@@ -9,6 +10,7 @@ pub enum CellData {
     Error(CellError),
 }
 
+#[derive(Clone, Debug)]
 pub enum CellError {
     Div0, Value, Ref, Name, Num, Na,
 }

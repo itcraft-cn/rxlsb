@@ -12,7 +12,14 @@ pub struct XlsbWriter {
     styles: StylesRegistry,
     workbook: WorkbookWriter,
     sheets_data: Vec<Vec<u8>>,
-    current_sheet: Option<usize>,
+    streaming: Option<StreamingState>,
+}
+
+struct StreamingState {
+    sheet_name: String,
+    col_count: usize,
+    max_row: usize,
+    rows_data: Vec<Vec<CellData>>,
 }
 
 impl XlsbWriter {
@@ -33,7 +40,7 @@ impl XlsbWriter {
             styles,
             workbook,
             sheets_data: vec![],
-            current_sheet: None,
+            streaming: None,
         })
     }
     
@@ -45,6 +52,66 @@ impl XlsbWriter {
         
         self.workbook.add_sheet(sheet_name);
         self.sheets_data.push(sheet_writer.serialize().as_ref().to_vec());
+        Ok(())
+    }
+    
+    pub fn start_sheet(&mut self, sheet_name: &str, col_count: usize) -> Result<()> {
+        if self.streaming.is_some() {
+            return Err(XlsbError::InvalidState("Previous sheet not ended, call end_sheet() first".into()));
+        }
+        
+        self.streaming = Some(StreamingState {
+            sheet_name: sheet_name.to_string(),
+            col_count,
+            max_row: 0,
+            rows_data: Vec::new(),
+        });
+        Ok(())
+    }
+    
+    pub fn write_rows(&mut self, supplier: impl CellSupplier, start_row: usize, row_count: usize) -> Result<()> {
+        let streaming = self.streaming.as_mut()
+            .ok_or_else(|| XlsbError::InvalidState("Sheet not started, call start_sheet() first".into()))?;
+        
+        let end_row = start_row + row_count;
+        if end_row > streaming.rows_data.len() {
+            streaming.rows_data.resize(end_row, vec![CellData::Blank; streaming.col_count]);
+        }
+        
+        for row in start_row..end_row {
+            for col in 0..streaming.col_count {
+                let cell = supplier.get_cell(row, col);
+                streaming.rows_data[row][col] = cell;
+            }
+        }
+        
+        streaming.max_row = streaming.max_row.max(end_row);
+        Ok(())
+    }
+    
+    pub fn end_sheet(&mut self) -> Result<()> {
+        let streaming = self.streaming.take()
+            .ok_or_else(|| XlsbError::InvalidState("Sheet not started".into()))?;
+        
+        struct VecSupplier {
+            data: Vec<Vec<CellData>>,
+        }
+        impl CellSupplier for VecSupplier {
+            fn get_cell(&self, row: usize, col: usize) -> CellData {
+                self.data.get(row)
+                    .and_then(|r| r.get(col))
+                    .cloned()
+                    .unwrap_or(CellData::Blank)
+            }
+        }
+        
+        let supplier = VecSupplier { data: streaming.rows_data };
+        let mut sheet_writer = SheetWriter::new(&mut self.sst, &mut self.styles);
+        sheet_writer.write_batch(supplier, streaming.max_row, streaming.col_count)?;
+        
+        self.workbook.add_sheet(&streaming.sheet_name);
+        self.sheets_data.push(sheet_writer.serialize().as_ref().to_vec());
+        
         Ok(())
     }
     

@@ -92,4 +92,98 @@ impl<'a> SheetReader<'a> {
         
         Ok(())
     }
+    
+    pub fn read_rows(&mut self, start_row: usize, row_count: usize) -> Result<Vec<Vec<CellData>>> {
+        let end_row = start_row + row_count;
+        let mut result: Vec<Vec<CellData>> = vec![];
+        let mut cells: Vec<CellData> = vec![];
+        let mut current_row: u32 = 0;
+        let mut in_range = false;
+        
+        while self.reader.has_remaining() {
+            let record_type_code = self.reader.read_varint()?;
+            let size = self.reader.read_varsize()?;
+            
+            let record_type = RecordType::from_u32(record_type_code);
+            
+            match record_type {
+                Some(RecordType::BrtRowHdr) => {
+                    if size < 17 {
+                        return Err(crate::error::XlsbError::InvalidFormat(
+                            format!("BrtRowHdr has invalid size: {}", size)
+                        ));
+                    }
+                    
+                    if in_range && !cells.is_empty() {
+                        result.push(cells.clone());
+                    }
+                    cells.clear();
+                    
+                    current_row = self.reader.read_u32_le()?;
+                    self.reader.skip(size as usize - 4)?;
+                    
+                    let row_idx = current_row as usize;
+                    in_range = row_idx >= start_row && row_idx < end_row;
+                }
+                
+                Some(RecordType::BrtCellReal) => {
+                    let _col = self.reader.read_u32_le()?;
+                    self.reader.skip(4)?;
+                    let value = self.reader.read_f64_le()?;
+                    if in_range {
+                        cells.push(CellData::number(value));
+                    }
+                }
+                
+                Some(RecordType::BrtCellSt) => {
+                    let _col = self.reader.read_u32_le()?;
+                    self.reader.skip(4)?;
+                    let text = self.reader.read_wide_string()?;
+                    if in_range {
+                        cells.push(CellData::text(text));
+                    }
+                }
+                
+                Some(RecordType::BrtCellIsst) => {
+                    let _col = self.reader.read_u32_le()?;
+                    self.reader.skip(4)?;
+                    let sst_idx = self.reader.read_u32_le()?;
+                    let text = self.sst.and_then(|s| s.get_string(sst_idx))
+                        .unwrap_or("");
+                    if in_range {
+                        cells.push(CellData::text(text));
+                    }
+                }
+                
+                Some(RecordType::BrtCellBool) => {
+                    let _col = self.reader.read_u32_le()?;
+                    self.reader.skip(3)?;
+                    let value = self.reader.read_u8()? != 0;
+                    if in_range {
+                        cells.push(CellData::bool(value));
+                    }
+                }
+                
+                Some(RecordType::BrtCellBlank) => {
+                    self.reader.skip(8)?;
+                    if in_range {
+                        cells.push(CellData::blank());
+                    }
+                }
+                
+                Some(RecordType::BrtEndSheetData) => {
+                    if in_range && !cells.is_empty() {
+                        result.push(cells);
+                    }
+                    break;
+                }
+                
+                _ => {
+                    self.reader.skip(size as usize)?;
+                }
+            }
+        }
+        
+        Ok(result)
+    }
 }
