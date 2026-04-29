@@ -22,11 +22,24 @@ pub struct SheetData {
     pub fill_result: Option<FillResult>,
 }
 
+pub struct StreamingState {
+    sheet_index: usize,
+    start_row: u32,
+    start_col: u32,
+    col_count: u32,
+    template_cells: Vec<CellInfo>,
+    template_merges: Vec<MergeCell>,
+    template_max_row: u32,
+    template_max_col: u32,
+    accumulated_data: Vec<Vec<CellData>>,
+}
+
 pub struct TemplateFiller {
     template_path: PathBuf,
     output_path: PathBuf,
     sheets: Vec<SheetData>,
     sst: SstTable,
+    streaming: Option<StreamingState>,
 }
 
 impl TemplateFiller {
@@ -163,6 +176,68 @@ impl TemplateFiller {
             .ok_or_else(|| XlsbError::MarkerNotFound(marker.to_string()))?;
         
         self.fill_batch(sheet_index, pos.0, pos.1, supplier, row_count, col_count)
+    }
+    
+    pub fn start_fill(&mut self, sheet_index: usize, start_row: u32, start_col: u32, col_count: u32) -> Result<()> {
+        if sheet_index >= self.sheets.len() {
+            return Err(XlsbError::InvalidArgument("sheet_index out of range"));
+        }
+        
+        if self.streaming.is_some() {
+            return Err(XlsbError::InvalidArgument("Previous fill not ended, call end_fill first"));
+        }
+        
+        let sheet = &self.sheets[sheet_index];
+        let parser = &sheet.parser;
+        
+        self.streaming = Some(StreamingState {
+            sheet_index,
+            start_row,
+            start_col,
+            col_count,
+            template_cells: parser.cells.clone(),
+            template_merges: parser.merges.clone(),
+            template_max_row: parser.max_row,
+            template_max_col: parser.max_col,
+            accumulated_data: Vec::new(),
+        });
+        
+        Ok(())
+    }
+    
+    pub fn fill_rows(&mut self, data: Vec<Vec<CellData>>) -> Result<()> {
+        if self.streaming.is_none() {
+            return Err(XlsbError::InvalidArgument("Fill not started, call start_fill first"));
+        }
+        
+        let streaming = self.streaming.as_mut().unwrap();
+        streaming.accumulated_data.extend(data);
+        
+        Ok(())
+    }
+    
+    pub fn end_fill(&mut self) -> Result<()> {
+        if self.streaming.is_none() {
+            return Err(XlsbError::InvalidArgument("Fill not started"));
+        }
+        
+        let streaming = self.streaming.take().unwrap();
+        
+        if streaming.accumulated_data.is_empty() {
+            return Ok(());
+        }
+        
+        let row_count = streaming.accumulated_data.len() as u32;
+        
+        self.sheets[streaming.sheet_index].fill_result = Some(FillResult {
+            start_row: streaming.start_row,
+            start_col: streaming.start_col,
+            row_count,
+            col_count: streaming.col_count,
+            data: streaming.accumulated_data,
+        });
+        
+        Ok(())
     }
     
     pub fn save(&mut self) -> Result<()> {
@@ -488,6 +563,6 @@ impl TemplateFillerBuilder {
         
         let (sheets, sst) = TemplateFiller::load_template(&template)?;
         
-        Ok(TemplateFiller { template_path: template, output_path: output, sheets, sst })
+        Ok(TemplateFiller { template_path: template, output_path: output, sheets, sst, streaming: None })
     }
 }
