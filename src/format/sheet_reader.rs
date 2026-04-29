@@ -52,7 +52,7 @@ impl<'a> SheetReader<'a> {
                 Some(RecordType::BrtCellSt) => {
                     let col = self.reader.read_u32_le()?;
                     self.reader.skip(4)?;
-                    let text = self.reader.read_wide_string()?;
+                    let text = self.reader.read_wide_string_u32()?;
                     cells.push(CellData::text(text));
                 }
                 
@@ -138,7 +138,7 @@ impl<'a> SheetReader<'a> {
                 Some(RecordType::BrtCellSt) => {
                     let _col = self.reader.read_u32_le()?;
                     self.reader.skip(4)?;
-                    let text = self.reader.read_wide_string()?;
+                    let text = self.reader.read_wide_string_u32()?;
                     if in_range {
                         cells.push(CellData::text(text));
                     }

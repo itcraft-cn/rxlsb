@@ -21,7 +21,7 @@ impl XlsbContainerWriter {
     
     pub fn add_entry(&mut self, name: &str, data: &[u8]) -> Result<()> {
         let options = FileOptions::default()
-            .compression_method(CompressionMethod::Stored);
+            .compression_method(CompressionMethod::Deflated);
         
         self.writer.start_file(name, options)?;
         self.writer.write_all(data)?;

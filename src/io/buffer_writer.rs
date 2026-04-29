@@ -90,6 +90,19 @@ impl BufferWriter {
         varint_size + char_count as usize * 2
     }
     
+    pub fn write_wide_string_u32(&mut self, s: &str) -> usize {
+        let utf16_chars: Vec<u16> = s.encode_utf16().collect();
+        let char_count = utf16_chars.len() as u32;
+        
+        self.write_u32_le(char_count);
+        
+        for ch in utf16_chars {
+            self.write_u16_le(ch);
+        }
+        
+        4 + char_count as usize * 2
+    }
+    
     pub fn utf16le_byte_length(s: &str) -> usize {
         s.encode_utf16().count() * 2
     }

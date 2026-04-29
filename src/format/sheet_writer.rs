@@ -243,12 +243,8 @@ impl<'a> SheetWriter<'a> {
     fn write_cell(&mut self, row: u32, col: u32, data: CellData) -> Result<()> {
         match data {
             CellData::Text(s) => {
-                if s.len() <= 3 {
-                    self.write_cell_st(row, col, &s)?;
-                } else {
-                    let sst_idx = self.sst.add_string(&s);
-                    self.write_cell_isst(row, col, sst_idx)?;
-                }
+                let sst_idx = self.sst.add_string(&s);
+                self.write_cell_isst(row, col, sst_idx)?;
             }
             CellData::Number(n) => {
                 self.write_cell_real(row, col, n)?;
@@ -280,12 +276,12 @@ impl<'a> SheetWriter<'a> {
     }
     
     fn write_cell_st(&mut self, _row: u32, col: u32, s: &str) -> Result<()> {
-        let string_size = BufferWriter::utf16le_byte_length(s) + BufferWriter::varint_size(s.encode_utf16().count() as u32);
+        let string_size = 4 + BufferWriter::utf16le_byte_length(s);
         self.buffer.write_varint(RecordType::BrtCellSt.to_u32());
         self.buffer.write_varsize((8 + string_size) as u32);
         self.buffer.write_u32_le(col);
         self.buffer.write_bytes(&[0x00, 0x00, 0x00, 0x00]);
-        self.buffer.write_wide_string(s);
+        self.buffer.write_wide_string_u32(s);
         Ok(())
     }
     
