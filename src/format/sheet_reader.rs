@@ -115,9 +115,9 @@ impl<'a> SheetReader<'a> {
                     }
                     
                     if in_range && !cells.is_empty() {
-                        result.push(cells.clone());
+                        result.push(cells);
+                        cells = Vec::new();
                     }
-                    cells.clear();
                     
                     current_row = self.reader.read_u32_le()?;
                     self.reader.skip(size as usize - 4)?;

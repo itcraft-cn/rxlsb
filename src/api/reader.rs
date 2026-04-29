@@ -1,4 +1,6 @@
 use std::path::PathBuf;
+use std::collections::HashMap;
+use bytes::Bytes;
 use crate::container::{XlsbContainerReader, XlsbContainerWriter};
 use crate::format::{SstTable, StylesRegistry, WorkbookReader, WorkbookWriter, SheetWriter, SheetReader};
 use crate::data::SheetInfo;
@@ -11,6 +13,7 @@ pub struct XlsbReader {
     sst: Option<SstTable>,
     styles: StylesRegistry,
     workbook: WorkbookReader,
+    sheet_cache: HashMap<usize, Bytes>,
 }
 
 impl XlsbReader {
@@ -33,7 +36,23 @@ impl XlsbReader {
             None
         };
         
-        Ok(Self { container, sst, styles, workbook })
+        Ok(Self { 
+            container, 
+            sst, 
+            styles, 
+            workbook,
+            sheet_cache: HashMap::new(),
+        })
+    }
+    
+    fn get_cached_sheet(&mut self, sheet_idx: usize) -> Result<Bytes> {
+        if let Some(cached) = self.sheet_cache.get(&sheet_idx) {
+            return Ok(cached.clone());
+        }
+        
+        let sheet_data = self.container.get_sheet_data(sheet_idx)?;
+        self.sheet_cache.insert(sheet_idx, sheet_data.clone());
+        Ok(sheet_data)
     }
     
     pub fn get_sheet_infos(&self) -> &[SheetInfo] {
@@ -56,7 +75,7 @@ impl XlsbReader {
             return Err(XlsbError::InvalidSheetIndex(sheet_idx));
         }
         
-        let sheet_data = self.container.get_sheet_data(sheet_idx)?;
+        let sheet_data = self.get_cached_sheet(sheet_idx)?;
         let mut sheet_reader = SheetReader::new(sheet_data, self.sst.as_ref());
         sheet_reader.read_rows(start_row, row_count)
     }
