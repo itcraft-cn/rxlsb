@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::io::BufferWriter;
+use crate::io::{BufferWriter, BufferReader};
 use crate::format::RecordType;
 use bytes::Bytes;
 use crate::error::Result;
@@ -71,5 +71,56 @@ impl SstTable {
         writer.write_varsize(0);
         
         Ok(writer.freeze())
+    }
+    
+    pub fn deserialize(data: Bytes) -> Result<Self> {
+        let mut reader = BufferReader::new(data);
+        let mut strings = Vec::new();
+        
+        while reader.has_remaining() {
+            let record_type_code = reader.read_varint()?;
+            let size = reader.read_varsize()?;
+            
+            let record_type = RecordType::from_u32(record_type_code);
+            
+            match record_type {
+                Some(RecordType::BrtBeginSst) => {
+                    reader.skip(size as usize)?;
+                }
+                
+                Some(RecordType::BrtSstItem) => {
+                    reader.skip(1)?;
+                    let char_count = reader.read_u32_le()? as usize;
+                    let mut chars = Vec::with_capacity(char_count);
+                    for _ in 0..char_count {
+                        chars.push(reader.read_u16_le()?);
+                    }
+                    let s = String::from_utf16(&chars)
+                        .map_err(|_| crate::error::XlsbError::InvalidUtf16)?;
+                    strings.push(s);
+                }
+                
+                Some(RecordType::BrtEndSst) => {
+                    break;
+                }
+                
+                _ => {
+                    reader.skip(size as usize)?;
+                }
+            }
+        }
+        
+        let hash_map = strings.iter()
+            .enumerate()
+            .map(|(i, s)| (s.clone(), i as u32))
+            .collect();
+        
+        let total_count = strings.len() as u32;
+        
+        Ok(Self {
+            strings,
+            hash_map,
+            total_count,
+        })
     }
 }

@@ -28,7 +28,7 @@ impl XlsbReader {
         
         let sst = if container.has_entry("xl/sharedStrings.bin") {
             let sst_data = container.get_sst_data()?.unwrap();
-            Some(SstTable::new())
+            Some(SstTable::deserialize(sst_data)?)
         } else {
             None
         };

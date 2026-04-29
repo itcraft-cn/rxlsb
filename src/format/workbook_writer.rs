@@ -54,12 +54,12 @@ impl WorkbookWriter {
             writer.write_u32_le(0);
             writer.write_u32_le(i as u32 + 1);
             
-            writer.write_u32_le(rel_id_chars as u32);
+            writer.write_varint(rel_id_chars as u32);
             for ch in rel_id.encode_utf16() {
                 writer.write_u16_le(ch);
             }
             
-            writer.write_u32_le(name_chars as u32);
+            writer.write_varint(name_chars as u32);
             for ch in sheet_name.encode_utf16() {
                 writer.write_u16_le(ch);
             }
