@@ -115,7 +115,7 @@ impl StylesRegistry {
     fn write_styles(writer: &mut BufferWriter) -> Result<()> {
         writer.write_varint(RecordType::BrtBeginStyles.to_u32());
         writer.write_varsize(4);
-        writer.write_u32_le(1);
+        writer.write_u32_le(2);
         
         writer.write_varint(RecordType::BrtXF.to_u32());
         writer.write_varsize(16);
@@ -124,6 +124,15 @@ impl StylesRegistry {
             0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00,
             0x08, 0x10, 0x00, 0x00
+        ]);
+        
+        writer.write_varint(RecordType::BrtXF.to_u32());
+        writer.write_varsize(16);
+        writer.write_bytes(&[
+            0x00, 0x00, 0x16, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x08, 0x10, 0x01, 0x00
         ]);
         
         writer.write_varint(RecordType::BrtEndStyles.to_u32());
