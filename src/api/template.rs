@@ -27,9 +27,13 @@ pub struct StreamingState {
     start_row: u32,
     start_col: u32,
     col_count: u32,
+    #[allow(dead_code)]
     template_cells: Vec<CellInfo>,
+    #[allow(dead_code)]
     template_merges: Vec<MergeCell>,
+    #[allow(dead_code)]
     template_max_row: u32,
+    #[allow(dead_code)]
     template_max_col: u32,
     accumulated_data: Vec<Vec<CellData>>,
 }

@@ -31,6 +31,7 @@ impl XlsbContainerReader {
         self.read_entry("xl/workbook.bin")
     }
     
+    #[allow(dead_code)]
     pub fn get_styles_data(&mut self) -> Result<Bytes> {
         self.read_entry("xl/styles.bin")
     }
@@ -48,10 +49,12 @@ impl XlsbContainerReader {
         self.read_entry(&name)
     }
     
+    #[allow(dead_code)]
     pub fn entry_names(&self) -> Vec<String> {
         self.archive.file_names().map(|s| s.to_string()).collect()
     }
     
+    #[allow(dead_code)]
     pub fn entry_count(&self) -> usize {
         self.archive.len()
     }

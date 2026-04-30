@@ -28,6 +28,7 @@ impl BufferWriter {
         self.buffer.put_u8(((v >> 16) & 0xFF) as u8);
     }
     
+    #[allow(dead_code)]
     pub fn write_u64_le(&mut self, v: u64) {
         self.buffer.put_u64_le(v);
     }
@@ -36,6 +37,7 @@ impl BufferWriter {
         self.buffer.put_f64_le(v);
     }
     
+    #[allow(dead_code)]
     pub fn write_i32_le(&mut self, v: i32) {
         self.buffer.put_i32_le(v);
     }
@@ -77,6 +79,7 @@ impl BufferWriter {
         }
     }
     
+    #[allow(dead_code)]
     pub fn write_wide_string(&mut self, s: &str) -> usize {
         let utf16_chars: Vec<u16> = s.encode_utf16().collect();
         let char_count = utf16_chars.len() as u32;
@@ -107,6 +110,7 @@ impl BufferWriter {
         s.encode_utf16().count() * 2
     }
     
+    #[allow(dead_code)]
     pub fn varint_size(value: u32) -> usize {
         if value < 0x80 { 1 }
         else if value < 0x4000 { 2 }
@@ -116,6 +120,7 @@ impl BufferWriter {
     }
     
     pub fn len(&self) -> usize { self.buffer.len() }
+    #[allow(dead_code)]
     pub fn capacity(&self) -> usize { self.buffer.capacity() }
     pub fn remaining_capacity(&self) -> usize { self.buffer.capacity() - self.buffer.len() }
     

@@ -42,10 +42,12 @@ impl XlsbContainerWriter {
         Ok(())
     }
     
+    #[allow(dead_code)]
     pub fn entries(&self) -> &[String] {
         &self.entries
     }
     
+    #[allow(dead_code)]
     pub fn entry_count(&self) -> usize {
         self.entries.len()
     }

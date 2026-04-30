@@ -97,7 +97,7 @@ impl<'a> SheetReader<'a> {
         let end_row = start_row + row_count;
         let mut result: Vec<Vec<CellData>> = vec![];
         let mut cells: Vec<CellData> = vec![];
-        let mut current_row: u32 = 0;
+        let mut current_row: u32;
         let mut in_range = false;
         
         while self.reader.has_remaining() {

@@ -4,6 +4,7 @@ pub enum CellValue {
     Text(String),
     Number(f64),
     Bool(bool),
+    #[allow(dead_code)]
     Blank,
 }
 

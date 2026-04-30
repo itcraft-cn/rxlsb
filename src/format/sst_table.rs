@@ -16,6 +16,7 @@ impl SstTable {
         Self { strings: vec![], hash_map: HashMap::new(), total_count: 0 }
     }
     
+    #[allow(dead_code)]
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             strings: Vec::with_capacity(capacity),

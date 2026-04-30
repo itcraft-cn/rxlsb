@@ -7,10 +7,13 @@ use bytes::Bytes;
 pub struct SheetWriter<'a> {
     buffer: BufferWriter,
     sst: &'a mut SstTable,
+    #[allow(dead_code)]
     styles: &'a mut StylesRegistry,
     max_row: usize,
     max_col: usize,
+    #[allow(dead_code)]
     streaming_mode: bool,
+    #[allow(dead_code)]
     streaming_col_count: usize,
 }
 
@@ -27,6 +30,7 @@ impl<'a> SheetWriter<'a> {
         }
     }
     
+    #[allow(dead_code)]
     pub fn start_streaming(&mut self, col_count: usize) -> Result<()> {
         self.streaming_mode = true;
         self.streaming_col_count = col_count;
@@ -41,6 +45,7 @@ impl<'a> SheetWriter<'a> {
         Ok(())
     }
     
+    #[allow(dead_code)]
     pub fn append_rows(&mut self, supplier: impl CellSupplier, start_row: usize, row_count: usize) -> Result<()> {
         let col_count = self.streaming_col_count;
         
@@ -58,6 +63,7 @@ impl<'a> SheetWriter<'a> {
         Ok(())
     }
     
+    #[allow(dead_code)]
     pub fn finalize_streaming(&mut self, row_count: usize, col_count: usize) -> Result<Bytes> {
         self.write_empty_record(RecordType::BrtEndSheetData)?;
         self.write_page_setup_records()?;
@@ -81,6 +87,7 @@ impl<'a> SheetWriter<'a> {
         Ok(final_buffer.freeze())
     }
     
+    #[allow(dead_code)]
     fn write_dimension_to(&self, writer: &mut BufferWriter, first_row: usize, first_col: usize,
                           last_row: usize, last_col: usize) -> Result<()> {
         writer.write_varint(RecordType::BrtWsDim.to_u32());
@@ -164,6 +171,7 @@ impl<'a> SheetWriter<'a> {
         Ok(())
     }
     
+    #[allow(dead_code)]
     fn write_page_setup_records(&mut self) -> Result<()> {
         self.buffer.write_varint(RecordType::BrtDrawing.to_u32());
         self.buffer.write_varsize(62);
@@ -275,6 +283,7 @@ impl<'a> SheetWriter<'a> {
         Ok(())
     }
     
+    #[allow(dead_code)]
     fn write_cell_st(&mut self, _row: u32, col: u32, s: &str) -> Result<()> {
         let string_size = 4 + BufferWriter::utf16le_byte_length(s);
         self.buffer.write_varint(RecordType::BrtCellSt.to_u32());

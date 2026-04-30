@@ -70,6 +70,7 @@ impl BufferReader {
         Ok(f64::from_bits(bits))
     }
     
+    #[allow(dead_code)]
     pub fn read_i32_le(&mut self) -> Result<i32> {
         let u = self.read_u32_le()?;
         Ok(u as i32)
@@ -124,7 +125,8 @@ impl BufferReader {
         Ok(((b0 & 0x7F) as u32) | (((b1 & 0x7F) as u32) << 7) | (((b2 & 0x7F) as u32) << 14) | ((b3 as u32) << 21))
     }
     
-pub fn read_wide_string(&mut self) -> Result<String> {
+#[allow(dead_code)]
+    pub fn read_wide_string(&mut self) -> Result<String> {
         let char_count = self.read_varint()? as usize;
         let byte_count = char_count * 2;
         
@@ -152,8 +154,11 @@ pub fn read_wide_string(&mut self) -> Result<String> {
             .map_err(|_| XlsbError::InvalidUtf16)
     }
     
+    #[allow(dead_code)]
     pub fn position(&self) -> usize { self.position }
+    #[allow(dead_code)]
     pub fn remaining(&self) -> usize { self.buffer.len() - self.position }
     pub fn has_remaining(&self) -> bool { self.position < self.buffer.len() }
+    #[allow(dead_code)]
     pub fn len(&self) -> usize { self.buffer.len() }
 }

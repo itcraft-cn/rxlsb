@@ -10,6 +10,7 @@ use crate::error::{XlsbError, Result};
 pub struct XlsbReader {
     container: XlsbContainerReader,
     sst: Option<SstTable>,
+    #[allow(dead_code)]
     styles: StylesRegistry,
     workbook: WorkbookReader,
     sheet_cache: HashMap<usize, Bytes>,

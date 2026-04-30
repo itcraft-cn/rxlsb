@@ -1,6 +1,7 @@
 use crate::io::BufferWriter;
 use crate::format::RecordType;
 
+#[allow(dead_code)]
 pub trait Biff12Writer {
     fn buffer(&mut self) -> &mut BufferWriter;
     

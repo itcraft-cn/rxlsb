@@ -6,6 +6,7 @@ use crate::container::{XmlGen, RelsGen};
 use crate::error::{XlsbError, Result};
 
 pub struct XlsbWriter {
+    #[allow(dead_code)]
     path: PathBuf,
     container: XlsbContainerWriter,
     sst: SstTable,

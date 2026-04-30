@@ -9,6 +9,7 @@ pub struct WorkbookReader {
 }
 
 impl WorkbookReader {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self { sheets: vec![] }
     }
