@@ -1,6 +1,6 @@
 [package]
 name = "rxlsb"
-version = "0.1.0" # managed by updgitver
+version = "0.1.0-dev" # managed by updgitver
 edition = "2021"
 authors = ["HellyGuo <hellyguo@foxmail.com>"]
 exclude = ["tests", "test_data", "benches", "examples", ".vscode"]
