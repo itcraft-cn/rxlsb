@@ -257,6 +257,10 @@ impl<'a> SheetWriter<'a> {
             CellData::Number(n) => {
                 self.write_cell_real(row, col, n)?;
             }
+            CellData::NumberWithFormat(n, format) => {
+                let style_idx = self.styles.get_style_id_for_format(&format);
+                self.write_cell_real_with_style(row, col, n, style_idx)?;
+            }
             CellData::Bool(b) => {
                 self.write_cell_bool(row, col, b)?;
             }
@@ -270,6 +274,11 @@ impl<'a> SheetWriter<'a> {
                 let excel_serial = self.excel_date_serial(&d);
                 self.write_cell_real(row, col, excel_serial)?;
             }
+            CellData::DateWithFormat(timestamp, format) => {
+                let style_idx = self.styles.get_style_id_for_format(&format);
+                let excel_serial = self.timestamp_to_excel_serial(timestamp);
+                self.write_cell_real_with_style(row, col, excel_serial, style_idx)?;
+            }
         }
         Ok(())
     }
@@ -279,6 +288,16 @@ impl<'a> SheetWriter<'a> {
         self.buffer.write_varsize(16);
         self.buffer.write_u32_le(col);
         self.buffer.write_bytes(&[0x00, 0x00, 0x00, 0x00]);
+        self.buffer.write_f64_le(value);
+        Ok(())
+    }
+    
+    fn write_cell_real_with_style(&mut self, _row: u32, col: u32, value: f64, style_idx: u32) -> Result<()> {
+        self.buffer.write_varint(RecordType::BrtCellReal.to_u32());
+        self.buffer.write_varsize(16);
+        self.buffer.write_u32_le(col);
+        self.buffer.write_u24_le(style_idx);
+        self.buffer.write_u8(0x00);
         self.buffer.write_f64_le(value);
         Ok(())
     }
@@ -328,6 +347,12 @@ impl<'a> SheetWriter<'a> {
         let seconds = duration.num_seconds() % 86400;
         let fractional_day = seconds as f64 / 86400.0;
         days + fractional_day
+    }
+    
+    fn timestamp_to_excel_serial(&self, timestamp: i64) -> f64 {
+        use chrono::TimeZone;
+        let dt = chrono::Utc.timestamp_opt(timestamp, 0).unwrap();
+        self.excel_date_serial(&dt)
     }
     
     pub fn serialize(&self) -> Bytes {

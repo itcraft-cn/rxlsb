@@ -1,43 +1,123 @@
 use crate::io::BufferWriter;
-use crate::format::RecordType;
+use crate::format::{RecordType, number_format::NumberFormatRegistry};
 use bytes::Bytes;
-use crate::error::Result;
 
-pub struct StylesRegistry;
+pub struct StylesRegistry {
+    format_registry: NumberFormatRegistry,
+    styles: Vec<CellStyleFormat>,
+}
+
+#[derive(Clone, Debug)]
+struct CellStyleFormat {
+    num_fmt_id: u16,
+    font_id: u16,
+    #[allow(dead_code)]
+    fill_id: u16,
+    #[allow(dead_code)]
+    border_id: u16,
+}
 
 impl StylesRegistry {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        let mut registry = Self {
+            format_registry: NumberFormatRegistry::new(),
+            styles: Vec::new(),
+        };
+        registry.initialize_default_style();
+        registry
+    }
     
-    pub fn serialize(&self) -> Result<Bytes> {
-        let mut writer = BufferWriter::new(2048);
+    fn initialize_default_style(&mut self) {
+        self.styles.push(CellStyleFormat {
+            num_fmt_id: 0,
+            font_id: 0,
+            fill_id: 0,
+            border_id: 0,
+        });
+    }
+    
+    pub fn add_style(&mut self, num_fmt_id: u16, font_id: u16, fill_id: u16, border_id: u16) -> u32 {
+        let style = CellStyleFormat {
+            num_fmt_id,
+            font_id,
+            fill_id,
+            border_id,
+        };
+        self.styles.push(style);
+        (self.styles.len() - 1) as u32
+    }
+    
+    pub fn get_style_id_for_format(&mut self, format_string: &str) -> u32 {
+        let format_id = self.format_registry.get_or_add_format(format_string);
+        
+        for (i, style) in self.styles.iter().enumerate() {
+            if style.num_fmt_id == format_id {
+                return i as u32;
+            }
+        }
+        
+        self.add_style(format_id, 0, 0, 0)
+    }
+    
+    #[allow(dead_code)]
+    pub fn get_format_registry(&mut self) -> &mut NumberFormatRegistry {
+        &mut self.format_registry
+    }
+    
+    #[allow(dead_code)]
+    pub fn get_default_style_id(&self) -> u32 {
+        0
+    }
+    
+    pub fn serialize(&self) -> Bytes {
+        let mut writer = BufferWriter::new(4096);
         
         writer.write_varint(RecordType::BrtBeginCellStyleXFs.to_u32());
         writer.write_varsize(0);
         
-        Self::write_formats(&mut writer)?;
-        Self::write_fonts(&mut writer)?;
-        Self::write_fills(&mut writer)?;
-        Self::write_borders(&mut writer)?;
-        Self::write_xfs(&mut writer)?;
-        Self::write_styles(&mut writer)?;
+        self.write_formats(&mut writer);
+        Self::write_fonts(&mut writer);
+        Self::write_fills(&mut writer);
+        Self::write_borders(&mut writer);
+        self.write_xfs(&mut writer);
+        self.write_styles(&mut writer);
         
         writer.write_varint(RecordType::BrtEndCellStyleXFs.to_u32());
         writer.write_varsize(0);
         
-        Ok(writer.freeze())
+        writer.freeze()
     }
     
-    fn write_formats(writer: &mut BufferWriter) -> Result<()> {
+    fn write_formats(&self, writer: &mut BufferWriter) {
+        let custom_formats = self.format_registry.get_custom_formats();
+        
         writer.write_varint(RecordType::BrtBeginFmts.to_u32());
         writer.write_varsize(4);
-        writer.write_u32_le(0);
+        writer.write_u32_le(custom_formats.len() as u32);
+        
+        for (format_id, format_string) in custom_formats {
+            self.write_brt_fmt(writer, *format_id, format_string);
+        }
         
         writer.write_varint(RecordType::BrtEndFmts.to_u32());
         writer.write_varsize(0);
-        Ok(())
     }
     
-    fn write_fonts(writer: &mut BufferWriter) -> Result<()> {
+    fn write_brt_fmt(&self, writer: &mut BufferWriter, format_id: u16, format_string: &str) {
+        let utf16_chars: Vec<u16> = format_string.encode_utf16().collect();
+        let char_count = utf16_chars.len() as u32;
+        let record_size = 2 + 4 + char_count * 2;
+        
+        writer.write_varint(RecordType::BrtFmt.to_u32());
+        writer.write_varsize(record_size as u32);
+        writer.write_u16_le(format_id);
+        writer.write_u32_le(char_count);
+        for ch in utf16_chars {
+            writer.write_u16_le(ch);
+        }
+    }
+    
+    fn write_fonts(writer: &mut BufferWriter) {
         writer.write_varint(RecordType::BrtBeginFonts.to_u32());
         writer.write_varsize(4);
         writer.write_u32_le(1);
@@ -58,10 +138,9 @@ impl StylesRegistry {
         
         writer.write_varint(RecordType::BrtEndFonts.to_u32());
         writer.write_varsize(0);
-        Ok(())
     }
     
-    fn write_fills(writer: &mut BufferWriter) -> Result<()> {
+    fn write_fills(writer: &mut BufferWriter) {
         writer.write_varint(RecordType::BrtBeginFills.to_u32());
         writer.write_varsize(4);
         writer.write_u32_le(2);
@@ -76,10 +155,9 @@ impl StylesRegistry {
         
         writer.write_varint(RecordType::BrtEndFills.to_u32());
         writer.write_varsize(0);
-        Ok(())
     }
     
-    fn write_borders(writer: &mut BufferWriter) -> Result<()> {
+    fn write_borders(writer: &mut BufferWriter) {
         writer.write_varint(RecordType::BrtBeginBorders.to_u32());
         writer.write_varsize(4);
         writer.write_u32_le(1);
@@ -90,10 +168,9 @@ impl StylesRegistry {
         
         writer.write_varint(RecordType::BrtEndBorders.to_u32());
         writer.write_varsize(0);
-        Ok(())
     }
     
-    fn write_xfs(writer: &mut BufferWriter) -> Result<()> {
+    fn write_xfs(&self, writer: &mut BufferWriter) {
         writer.write_varint(RecordType::BrtBeginXFs.to_u32());
         writer.write_varsize(4);
         writer.write_u32_le(1);
@@ -109,34 +186,38 @@ impl StylesRegistry {
         
         writer.write_varint(RecordType::BrtEndXFs.to_u32());
         writer.write_varsize(0);
-        Ok(())
     }
     
-    fn write_styles(writer: &mut BufferWriter) -> Result<()> {
+    fn write_styles(&self, writer: &mut BufferWriter) {
+        let style_count = self.styles.len() as u32;
+        
         writer.write_varint(RecordType::BrtBeginStyles.to_u32());
-        writer.write_varsize(4);
-        writer.write_u32_le(2);
+        writer.write_varsize(4 + style_count * 20);
+        writer.write_u32_le(style_count);
         
-        writer.write_varint(RecordType::BrtXF.to_u32());
-        writer.write_varsize(16);
-        writer.write_bytes(&[
-            0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00,
-            0x08, 0x10, 0x00, 0x00
-        ]);
-        
-        writer.write_varint(RecordType::BrtXF.to_u32());
-        writer.write_varsize(16);
-        writer.write_bytes(&[
-            0x00, 0x00, 0x16, 0x00,
-            0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00,
-            0x08, 0x10, 0x01, 0x00
-        ]);
+        for (idx, style) in self.styles.iter().enumerate() {
+            writer.write_varint(RecordType::BrtXF.to_u32());
+            writer.write_varsize(16);
+            
+            let xf_type = 0x08;
+            let style_id = idx as u16;
+            
+            writer.write_bytes(&[
+                style.num_fmt_id as u8, ((style.num_fmt_id >> 8) as u8) & 0x0F,
+                style.font_id as u8, 0x00,
+                0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00,
+                xf_type, 0x10, style_id as u8, ((style_id >> 8) as u8) & 0x01
+            ]);
+        }
         
         writer.write_varint(RecordType::BrtEndStyles.to_u32());
         writer.write_varsize(0);
-        Ok(())
+    }
+}
+
+impl Default for StylesRegistry {
+    fn default() -> Self {
+        Self::new()
     }
 }

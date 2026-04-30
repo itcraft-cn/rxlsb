@@ -227,7 +227,7 @@ impl XlsbWriter {
         self.container.add_entry_from_bytes("xl/_rels/workbook.bin.rels",
             &RelsGen::workbook_rels(sheet_count, has_sst))?;
         
-        let styles_data = self.styles.serialize()?;
+        let styles_data = self.styles.serialize();
         self.container.add_entry_from_bytes("xl/styles.bin", &styles_data)?;
         
         if has_sst {

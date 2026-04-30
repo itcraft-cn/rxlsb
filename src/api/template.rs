@@ -457,9 +457,11 @@ impl TemplateFiller {
             CellData::Text(s) if s.len() <= 3 => Self::write_cell_st(writer, col, 0, s),
             CellData::Text(s) => Self::write_cell_isst(writer, col, 0, sst.add_string(s)),
             CellData::Number(n) => Self::write_cell_real(writer, col, 0, *n),
+            CellData::NumberWithFormat(n, _) => Self::write_cell_real(writer, col, 0, *n),
             CellData::Bool(b) => Self::write_cell_bool(writer, col, 0, *b),
             CellData::Blank => Self::write_cell_blank(writer, col, 0),
             CellData::Date(d) => Self::write_cell_real(writer, col, 0, Self::excel_date(d)),
+            CellData::DateWithFormat(timestamp, _) => Self::write_cell_real(writer, col, 0, Self::timestamp_to_excel(*timestamp)),
             CellData::Error(_) => Self::write_cell_blank(writer, col, 0),
         }
     }
@@ -542,6 +544,12 @@ impl TemplateFiller {
         let epoch = chrono::Utc.with_ymd_and_hms(1899, 12, 30, 0, 0, 0).unwrap();
         let dur = dt.signed_duration_since(epoch);
         dur.num_days() as f64 + (dur.num_seconds() % 86400) as f64 / 86400.0
+    }
+    
+    fn timestamp_to_excel(timestamp: i64) -> f64 {
+        use chrono::TimeZone;
+        let dt = chrono::Utc.timestamp_opt(timestamp, 0).unwrap();
+        Self::excel_date(&dt)
     }
 }
 
