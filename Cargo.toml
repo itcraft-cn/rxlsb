@@ -9,7 +9,7 @@ repository = "https://github.com/itcraft-cn/globalvar"
 license = "Apache-2.0"
 readme = "README.md"
 description = "Pure Rust XLSB (Excel Binary Workbook) reader/writer library"
-categories = ["Text processing"]
+categories = ["text-processing"]
 documentation = "https://docs.rs/crate/rxlsb/latest"
 keywords = ["wps", "office", "spreadsheet", "excel",  "xlsb"]
 
