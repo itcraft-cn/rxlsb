@@ -199,15 +199,23 @@ impl StylesRegistry {
             writer.write_varint(RecordType::BrtXF.to_u32());
             writer.write_varsize(16);
             
-            let xf_type = 0x08;
-            let style_id = idx as u16;
+            let is_first = idx == 0;
             
+            // BrtXF structure (16 bytes):
+            // bytes 0-1: ixf (always 0x00 0x00)
+            // bytes 2-3: ifmt (numFmtId) - THIS IS THE KEY!
+            // bytes 4-11: unused (0x00)
+            // bytes 12-13: flags (0x08 0x10)
+            // byte 14: styleId (0x00 for first, 0x01+ for others)
+            // byte 15: unused (0x00)
             writer.write_bytes(&[
-                style.num_fmt_id as u8, ((style.num_fmt_id >> 8) as u8) & 0x0F,
-                style.font_id as u8, 0x00,
-                0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00, 0x00, 0x00,
-                xf_type, 0x10, style_id as u8, ((style_id >> 8) as u8) & 0x01
+                0x00, 0x00,                                  // ixf
+                style.num_fmt_id as u8, (style.num_fmt_id >> 8) as u8,  // ifmt (formatId)
+                0x00, 0x00, 0x00, 0x00,                      // unused
+                0x00, 0x00, 0x00, 0x00,                      // unused
+                0x08, 0x10,                                  // flags
+                if is_first { 0x00 } else { idx as u8 },    // styleId
+                0x00                                          // unused
             ]);
         }
         
