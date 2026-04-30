@@ -1,5 +1,4 @@
 use rxlsb::{XlsbWriter, XlsbReader, CellData};
-use tempfile::NamedTempFile;
 
 const TEST_FILE: &str = "/tmp/rxlsb_features_test.xlsb";
 
