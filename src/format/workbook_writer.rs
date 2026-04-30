@@ -1,6 +1,5 @@
 use crate::io::BufferWriter;
 use crate::format::RecordType;
-use crate::data::SheetInfo;
 use bytes::Bytes;
 use crate::error::Result;
 

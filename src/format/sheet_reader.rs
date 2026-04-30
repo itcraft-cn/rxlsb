@@ -43,21 +43,21 @@ impl<'a> SheetReader<'a> {
                 }
                 
                 Some(RecordType::BrtCellReal) => {
-                    let col = self.reader.read_u32_le()?;
+                    let _col = self.reader.read_u32_le()?;
                     self.reader.skip(4)?;
                     let value = self.reader.read_f64_le()?;
                     cells.push(CellData::number(value));
                 }
                 
                 Some(RecordType::BrtCellSt) => {
-                    let col = self.reader.read_u32_le()?;
+                    let _col = self.reader.read_u32_le()?;
                     self.reader.skip(4)?;
                     let text = self.reader.read_wide_string_u32()?;
                     cells.push(CellData::text(text));
                 }
                 
                 Some(RecordType::BrtCellIsst) => {
-                    let col = self.reader.read_u32_le()?;
+                    let _col = self.reader.read_u32_le()?;
                     self.reader.skip(4)?;
                     let sst_idx = self.reader.read_u32_le()?;
                     let text = self.sst.and_then(|s| s.get_string(sst_idx))
@@ -66,7 +66,7 @@ impl<'a> SheetReader<'a> {
                 }
                 
                 Some(RecordType::BrtCellBool) => {
-                    let col = self.reader.read_u32_le()?;
+                    let _col = self.reader.read_u32_le()?;
                     self.reader.skip(3)?;
                     let value = self.reader.read_u8()? != 0;
                     cells.push(CellData::bool(value));

@@ -87,7 +87,7 @@ impl TemplateFiller {
     
     fn parse_sst(data: &[u8]) -> SstTable {
         let mut sst = SstTable::new();
-        let reader = BufferReader::new(Bytes::copy_from_slice(data));
+        let _reader = BufferReader::new(Bytes::copy_from_slice(data));
         let mut pos = 0;
         
         while pos + 2 < data.len() {
@@ -110,7 +110,7 @@ impl TemplateFiller {
             if pos + record_size as usize > data.len() { break; }
             
             if record_type == crate::format::RecordType::BrtSstItem.to_u32() {
-                let flags = data[pos];
+                let _flags = data[pos];
                 let char_count = u32::from_le_bytes([data[pos+1], data[pos+2], data[pos+3], data[pos+4]]);
                 let mut chars = Vec::with_capacity(char_count as usize);
                 for j in 0..char_count as usize {

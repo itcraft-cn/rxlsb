@@ -1,11 +1,10 @@
 use std::path::PathBuf;
 use std::collections::HashMap;
 use bytes::Bytes;
-use crate::container::{XlsbContainerReader, XlsbContainerWriter};
-use crate::format::{SstTable, StylesRegistry, WorkbookReader, WorkbookWriter, SheetWriter, SheetReader};
+use crate::container::XlsbContainerReader;
+use crate::format::{SstTable, StylesRegistry, WorkbookReader, SheetReader};
 use crate::data::SheetInfo;
-use crate::api::{CellData, CellSupplier, RowHandler};
-use crate::container::{XmlGen, RelsGen};
+use crate::api::{CellData, RowHandler};
 use crate::error::{XlsbError, Result};
 
 pub struct XlsbReader {

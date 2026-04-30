@@ -1,4 +1,3 @@
-use bytes::Bytes;
 
 #[derive(Debug, Clone)]
 pub enum CellValue {
