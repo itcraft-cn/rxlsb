@@ -1,1 +1,5 @@
 *.xls*
+[Content_Types].xml
+_rels/
+docProps/
+xl/
