@@ -292,13 +292,13 @@ impl<'a> SheetWriter<'a> {
         Ok(())
     }
     
-    fn write_cell_real_with_style(&mut self, _row: u32, col: u32, value: f64, style_idx: u32) -> Result<()> {
+fn write_cell_real_with_style(&mut self, _row: u32, col: u32, value: f64, style_idx: u32) -> Result<()> {
         self.buffer.write_varint(RecordType::BrtCellReal.to_u32());
         self.buffer.write_varsize(16);
-        self.buffer.write_u32_le(col);
-        self.buffer.write_u24_le(style_idx);
-        self.buffer.write_u8(0x00);
-        self.buffer.write_f64_le(value);
+        self.buffer.write_u32_le(col);        // 4字节
+        self.buffer.write_u24_le(style_idx);  // 3字节
+        self.buffer.write_u8(0x00);           // 1字节
+        self.buffer.write_f64_le(value);      // 8字节
         Ok(())
     }
     
