@@ -1,9 +1,17 @@
 [package]
 name = "rxlsb"
-version = "0.1.0"
+version = "0.1.0" # managed by updgitver
 edition = "2021"
+authors = ["HellyGuo <hellyguo@foxmail.com>"]
+exclude = ["tests", "test_data", "benches", "examples", ".vscode"]
+homepage = "https://itcraft.cn/globalvar/"
+repository = "https://github.com/itcraft-cn/globalvar"
 license = "Apache-2.0"
+readme = "README.md"
 description = "Pure Rust XLSB (Excel Binary Workbook) reader/writer library"
+categories = ["util"]
+documentation = "https://docs.rs/crate/rxlsb/latest"
+keywords = ["wps", "office", "spreadsheet", "excel", "xls", "xlsb"]
 
 [dependencies]
 zip = "0.6"
