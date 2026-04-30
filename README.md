@@ -115,9 +115,9 @@ pub enum CellData {
 
 ## Related Projects
 
-- [jxlsb](https://github.com/your-org/jxlsb) - Java implementation
-- [cxlsb](https://github.com/your-org/cxlsb) - ANSI C implementation
-- [jsxlsb](https://github.com/your-org/jsxlsb) - Node.js implementation
+- [jxlsb](https://github.com/itcraft-cn/jxlsb) - Java implementation
+- [cxlsb](https://github.com/itcraft-cn/cxlsb) - ANSI C implementation
+- [jsxlsb](https://github.com/itcraft-cn/jsxlsb) - Node.js implementation
 
 ## License
 

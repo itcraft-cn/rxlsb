@@ -115,9 +115,9 @@ pub enum CellData {
 
 ## 相关项目
 
-- [jxlsb](https://github.com/your-org/jxlsb) - Java实现
-- [cxlsb](https://github.com/your-org/cxlsb) - ANSI C实现
-- [jsxlsb](https://github.com/your-org/jsxlsb) - Node.js实现
+- [jxlsb](https://github.com/itcraft-cn/jxlsb) - Java实现
+- [cxlsb](https://github.com/itcraft-cn/cxlsb) - ANSI C实现
+- [jsxlsb](https://github.com/itcraft-cn/jsxlsb) - Node.js实现
 
 ## 许可证
 
