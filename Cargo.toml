@@ -11,7 +11,7 @@ readme = "README.md"
 description = "Pure Rust XLSB (Excel Binary Workbook) reader/writer library"
 categories = ["util"]
 documentation = "https://docs.rs/crate/rxlsb/latest"
-keywords = ["wps", "office", "spreadsheet", "excel", "xls", "xlsb"]
+keywords = ["wps", "office", "spreadsheet", "excel",  "xlsb"]
 
 [dependencies]
 zip = "0.6"
