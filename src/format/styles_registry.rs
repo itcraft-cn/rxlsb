@@ -2,12 +2,9 @@ use crate::io::BufferWriter;
 use crate::format::{RecordType, number_format::NumberFormatRegistry};
 use bytes::Bytes;
 
-#[derive(Clone, Debug)]
-struct CellXF {
-    num_fmt_id: u16,
-    font_id: u16,
-    fill_id: u16,
-    border_id: u16,
+pub struct StylesRegistry {
+    format_registry: NumberFormatRegistry,
+    style_xfs: Vec<StyleXF>,
 }
 
 #[derive(Clone, Debug)]
@@ -18,33 +15,18 @@ struct StyleXF {
     border_id: u16,
 }
 
-pub struct StylesRegistry {
-    format_registry: NumberFormatRegistry,
-    cell_xfs: Vec<CellXF>,
-    style_xfs: Vec<StyleXF>,
-}
-
 impl StylesRegistry {
     pub fn new() -> Self {
         let mut registry = Self {
             format_registry: NumberFormatRegistry::new(),
-            cell_xfs: Vec::new(),
             style_xfs: Vec::new(),
         };
-        registry.initialize_default_xfs();
+        registry.initialize_default_styles();
         registry
     }
     
-    fn initialize_default_xfs(&mut self) {
-        // Add default cell XF (ifmt=0) at index 0
-        self.cell_xfs.push(CellXF {
-            num_fmt_id: 0,
-            font_id: 0,
-            fill_id: 0,
-            border_id: 0,
-        });
-        
-        // Add default style XF
+    fn initialize_default_styles(&mut self) {
+        // BrtBeginStyles[0]: default style (ifmt=0)
         self.style_xfs.push(StyleXF {
             num_fmt_id: 0,
             font_id: 0,
@@ -56,22 +38,22 @@ impl StylesRegistry {
     pub fn get_style_id_for_format(&mut self, format_string: &str) -> u32 {
         let format_id = self.format_registry.get_or_add_format(format_string);
         
-        // Check if this format already has a cell XF
-        for (i, xf) in self.cell_xfs.iter().enumerate() {
+        // Check if this format already has a StyleXF
+        for (i, xf) in self.style_xfs.iter().enumerate() {
             if xf.num_fmt_id == format_id {
-                return i as u32;
+                return (i + 1) as u32; // +1 to skip BrtBeginXFs[0]
             }
         }
         
-        // Create new cell XF for this format
-        self.cell_xfs.push(CellXF {
+        // Create new StyleXF for this format (in BrtBeginStyles)
+        self.style_xfs.push(StyleXF {
             num_fmt_id: format_id,
             font_id: 0,
             fill_id: 0,
             border_id: 0,
         });
         
-        (self.cell_xfs.len() - 1) as u32
+        (self.style_xfs.len()) as u32 // Already accounts for +1
     }
     
     #[allow(dead_code)]
@@ -186,42 +168,30 @@ impl StylesRegistry {
     }
     
     fn write_cell_xfs(&self, writer: &mut BufferWriter) {
-        let count = self.cell_xfs.len() as u32;
-        
+        // BrtBeginXFs: only 1 default XF (matching jxlsb)
         writer.write_varint(RecordType::BrtBeginXFs.to_u32());
         writer.write_varsize(4);
-        writer.write_u32_le(count);
+        writer.write_u32_le(1);
         
-        for xf in &self.cell_xfs {
-            writer.write_varint(RecordType::BrtXF.to_u32());
-            writer.write_varsize(16);
-            
-            // BrtXF for cell XF (ixf=0xffff) - matches WPS structure
-            // bytes 0-1: ixf (u16, 0xffff for cell XF)
-            // bytes 2-3: ifmt (u16, numFmtId)
-            // bytes 4-5: iFont (u16)
-            // bytes 6-7: padding (u16, 0x0000)
-            // bytes 8-9: iFill (u16)
-            // bytes 10-11: padding (u16, 0x0000)
-            // bytes 12-13: flags (u16, 0x0810)
-            // bytes 14: borderId (u8)
-            // bytes 15: padding (u8, 0x00)
-            writer.write_u16_le(0xFFFF);                           // ixf = 0xffff
-            writer.write_u16_le(xf.num_fmt_id);                    // ifmt
-            writer.write_u16_le(xf.font_id);                       // iFont
-            writer.write_u16_le(0x0000);                           // padding
-            writer.write_u16_le(xf.fill_id);                       // iFill
-            writer.write_u16_le(0x0000);                           // padding
-            writer.write_u16_le(0x1008);                           // flags (WPS uses 0x1008, not 0x0810)
-            writer.write_u8(xf.border_id as u8);                   // borderId
-            writer.write_u8(0x00);                                 // padding
-        }
+        // XF[0]: default cell XF (ixf=0xffff, ifmt=0)
+        writer.write_varint(RecordType::BrtXF.to_u32());
+        writer.write_varsize(16);
+        writer.write_u16_le(0xFFFF); // ixf
+        writer.write_u16_le(0);      // ifmt
+        writer.write_u16_le(0);      // iFont
+        writer.write_u16_le(0);      // padding
+        writer.write_u16_le(0);      // iFill
+        writer.write_u16_le(0);      // padding
+        writer.write_u16_le(0x1008); // flags
+        writer.write_u8(0);          // borderId
+        writer.write_u8(0);          // padding
         
         writer.write_varint(RecordType::BrtEndXFs.to_u32());
         writer.write_varsize(0);
     }
     
     fn write_style_xfs(&self, writer: &mut BufferWriter) {
+        // BrtBeginStyles: contains all format XFs (matching jxlsb)
         let count = self.style_xfs.len() as u32;
         
         writer.write_varint(RecordType::BrtBeginStyles.to_u32());
@@ -234,18 +204,12 @@ impl StylesRegistry {
             
             let is_first = idx == 0;
             
-            // BrtXF for style XF (ixf=0x0000) - matches WPS structure
-            // bytes 0-1: ixf (u16, 0x0000 for style XF)
-            // bytes 2-3: ifmt (u16, numFmtId)
-            // bytes 4-11: unused (all 0x00)
-            // bytes 12-13: flags (u16, 0x0810)
-            // bytes 14: styleId (u8, 0x00 for first, 0x01 for others)
-            // bytes 15: unused (u8, 0x00)
-            writer.write_u16_le(0x0000);                           // ixf = 0x0000
+            // Style XF (ixf=0x0000, matching jxlsb)
+            writer.write_u16_le(0x0000);                           // ixf
             writer.write_u16_le(xf.num_fmt_id);                    // ifmt
-            writer.write_u32_le(0x00000000);                       // unused (bytes 4-7)
-            writer.write_u32_le(0x00000000);                       // unused (bytes 8-11)
-            writer.write_u16_le(0x1008);                           // flags (WPS uses 0x1008, not 0x0810)
+            writer.write_u32_le(0x00000000);                       // unused
+            writer.write_u32_le(0x00000000);                       // unused
+            writer.write_u16_le(0x1008);                           // flags
             writer.write_u8(if is_first { 0x00 } else { 0x01 });   // styleId
             writer.write_u8(0x00);                                 // unused
         }
