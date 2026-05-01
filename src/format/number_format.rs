@@ -20,7 +20,23 @@ impl NumberFormatRegistry {
     }
     
     fn initialize_built_in_formats(&mut self) {
+        // Excel built-in formats (ID 0-22)
+        // See: https://docs.microsoft.com/en-us/dotnet/api/documentformat.openxml.spreadsheet.numberingformat
         let built_in_formats = [
+            (0, "General"),
+            (1, "0"),
+            (2, "0.00"),
+            (3, "#,##0"),
+            (4, "#,##0.00"),
+            (5, "$#,##0;($#,##0)"),
+            (6, "$#,##0;[Red]($#,##0)"),
+            (7, "$#,##0.00;($#,##0.00)"),
+            (8, "$#,##0.00;[Red]($#,##0.00)"),
+            (9, "0%"),
+            (10, "0.00%"),
+            (11, "0.00E+00"),
+            (12, "# ?/?"),
+            (13, "# ??/??"),
             (14, "mm-dd-yy"),
             (15, "d-mmm-yy"),
             (16, "d-mmm"),
