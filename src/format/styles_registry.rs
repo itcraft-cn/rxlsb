@@ -28,8 +28,16 @@ impl StylesRegistry {
     }
     
     fn initialize_default_style(&mut self) {
+        // Add default style (ifmt=0) at index 0
         self.styles.push(CellStyleFormat {
             num_fmt_id: 0,
+            font_id: 0,
+            fill_id: 0,
+            border_id: 0,
+        });
+        // Add time placeholder (ifmt=22) at index 1, matching jxlsb structure
+        self.styles.push(CellStyleFormat {
+            num_fmt_id: 22,
             font_id: 0,
             fill_id: 0,
             border_id: 0,
