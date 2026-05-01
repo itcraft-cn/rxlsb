@@ -5,61 +5,30 @@ fn main() {
     let path = PathBuf::from("/tmp/format_test.xlsb");
     let mut writer = XlsbWriter::builder().path(&path).build().unwrap();
     
-    writer.write_batch("Formats", |row, col| {
-        match row {
-            0 => match col {
-                0 => CellData::text("格式类型"),
-                1 => CellData::text("示例值"),
-                _ => CellData::blank(),
+    // Match jxlsb NumberFormatTest.java exactly
+    writer.write_batch("Formats", |row: usize, col: usize| {
+        let value = row as f64 * 123.456 - 500.0;
+        
+        match col {
+            0 => CellData::text(format!("Row-{}", row)),
+            1 => CellData::number(value),           // 普通数值
+            2 => CellData::percentage(value / 100.0), // 百分比 "0.00%"
+            3 => CellData::number_with_comma(value),  // 千分位 "#,##0.00"
+            4 => CellData::number_negative_red(value), // 负红 "#,##0.00;[Red]-#,##0.00"
+            5 => CellData::currency(value),          // 货币 "￥#,##0.00"
+            6 => {
+                // 日期 - 使用内置格式 ifmt=22 ("m/d/yy h:mm")
+                let excel_date = 46142.31823571759; // Excel serial date
+                CellData::number_with_format(excel_date, "m/d/yy h:mm")
             },
-            1 => match col {
-                0 => CellData::text("普通数值"),
-                1 => CellData::number(12345.67),
-                _ => CellData::blank(),
-            },
-            2 => match col {
-                0 => CellData::text("百分比"),
-                1 => CellData::percentage(0.1234),
-                _ => CellData::blank(),
-            },
-            3 => match col {
-                0 => CellData::text("百分比(1位小数)"),
-                1 => CellData::percentage_with_decimals(0.1234, 1),
-                _ => CellData::blank(),
-            },
-            4 => match col {
-                0 => CellData::text("千分位"),
-                1 => CellData::number_with_comma(1234567.89),
-                _ => CellData::blank(),
-            },
-            5 => match col {
-                0 => CellData::text("负数红色"),
-                1 => CellData::number_negative_red(-1234.56),
-                _ => CellData::blank(),
-            },
-            6 => match col {
-                0 => CellData::text("货币"),
-                1 => CellData::currency(1234.56),
-                _ => CellData::blank(),
-            },
-            7 => match col {
-                0 => CellData::text("货币(美元)"),
-                1 => CellData::currency_with_symbol(1234.56, "$"),
-                _ => CellData::blank(),
-            },
-            8 => match col {
-                0 => CellData::text("时间"),
-                1 => CellData::time(1234567890),
-                _ => CellData::blank(),
-            },
-            9 => match col {
-                0 => CellData::text("日期"),
-                1 => CellData::date_from_timestamp(1234567890),
-                _ => CellData::blank(),
+            7 => {
+                // 时间 - 使用内置格式 ifmt=21 ("h:mm:ss")
+                let excel_date = 46142.31823571759; // Excel serial date
+                CellData::number_with_format(excel_date, "h:mm:ss")
             },
             _ => CellData::blank(),
         }
-    }, 10, 2).unwrap();
+    }, 20, 8).unwrap();
     
     writer.close().unwrap();
     println!("Generated {}", path.display());
