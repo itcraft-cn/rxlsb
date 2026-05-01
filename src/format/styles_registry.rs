@@ -212,7 +212,7 @@ impl StylesRegistry {
             writer.write_u16_le(0x0000);                           // padding
             writer.write_u16_le(xf.fill_id);                       // iFill
             writer.write_u16_le(0x0000);                           // padding
-            writer.write_u16_le(0x0810);                           // flags
+            writer.write_u16_le(0x1008);                           // flags (WPS uses 0x1008, not 0x0810)
             writer.write_u8(xf.border_id as u8);                   // borderId
             writer.write_u8(0x00);                                 // padding
         }
@@ -245,7 +245,7 @@ impl StylesRegistry {
             writer.write_u16_le(xf.num_fmt_id);                    // ifmt
             writer.write_u32_le(0x00000000);                       // unused (bytes 4-7)
             writer.write_u32_le(0x00000000);                       // unused (bytes 8-11)
-            writer.write_u16_le(0x0810);                           // flags
+            writer.write_u16_le(0x1008);                           // flags (WPS uses 0x1008, not 0x0810)
             writer.write_u8(if is_first { 0x00 } else { 0x01 });   // styleId
             writer.write_u8(0x00);                                 // unused
         }
