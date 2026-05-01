@@ -26,26 +26,20 @@ impl StylesRegistry {
     }
     
     fn initialize_default_styles(&mut self) {
-        // BrtBeginStyles[0]: default style (ifmt=0)
-        self.style_xfs.push(StyleXF {
-            num_fmt_id: 0,
-            font_id: 0,
-            fill_id: 0,
-            border_id: 0,
-        });
+        // MATCH jxlsb CellStyleRegistry.initializeDefaultStyle()
+        // Only default style (numFmtId=0) is added here
+        self.style_xfs.push(StyleXF { num_fmt_id: 0, font_id: 0, fill_id: 0, border_id: 0 });
     }
     
     pub fn get_style_id_for_format(&mut self, format_string: &str) -> u32 {
         let format_id = self.format_registry.get_or_add_format(format_string);
         
-        // Check if this format already has a StyleXF
         for (i, xf) in self.style_xfs.iter().enumerate() {
             if xf.num_fmt_id == format_id {
-                return (i + 1) as u32; // +1 to skip BrtBeginXFs[0]
+                return i as u32;
             }
         }
         
-        // Create new StyleXF for this format (in BrtBeginStyles)
         self.style_xfs.push(StyleXF {
             num_fmt_id: format_id,
             font_id: 0,
@@ -53,7 +47,7 @@ impl StylesRegistry {
             border_id: 0,
         });
         
-        (self.style_xfs.len()) as u32 // Already accounts for +1
+        (self.style_xfs.len() - 1) as u32
     }
     
     #[allow(dead_code)]

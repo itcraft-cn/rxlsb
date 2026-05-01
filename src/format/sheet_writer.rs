@@ -7,18 +7,17 @@ use bytes::Bytes;
 pub struct SheetWriter<'a> {
     buffer: BufferWriter,
     sst: &'a mut SstTable,
-    #[allow(dead_code)]
     styles: &'a mut StylesRegistry,
     max_row: usize,
     max_col: usize,
-    #[allow(dead_code)]
     streaming_mode: bool,
-    #[allow(dead_code)]
     streaming_col_count: usize,
+    default_date_style_id: u32,
 }
 
 impl<'a> SheetWriter<'a> {
     pub fn new(sst: &'a mut SstTable, styles: &'a mut StylesRegistry) -> Self {
+        let default_date_style_id = styles.get_style_id_for_format("m/d/yy h:mm");
         Self {
             buffer: BufferWriter::new(1024),
             sst,
@@ -27,6 +26,7 @@ impl<'a> SheetWriter<'a> {
             max_col: 0,
             streaming_mode: false,
             streaming_col_count: 0,
+            default_date_style_id,
         }
     }
     
@@ -272,7 +272,7 @@ impl<'a> SheetWriter<'a> {
             }
             CellData::Date(d) => {
                 let excel_serial = self.excel_date_serial(&d);
-                self.write_cell_real(row, col, excel_serial)?;
+                self.write_cell_real_with_style(row, col, excel_serial, self.default_date_style_id)?;
             }
             CellData::DateWithFormat(timestamp, format) => {
                 let style_idx = self.styles.get_style_id_for_format(&format);
