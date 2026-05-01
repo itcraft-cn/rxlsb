@@ -192,7 +192,7 @@ impl StylesRegistry {
         let style_count = self.styles.len() as u32;
         
         writer.write_varint(RecordType::BrtBeginStyles.to_u32());
-        writer.write_varsize(4 + style_count * 20);
+        writer.write_varsize(4);
         writer.write_u32_le(style_count);
         
         for (idx, style) in self.styles.iter().enumerate() {
