@@ -11,6 +11,8 @@
 - **流式API**: 支持批量写入、分页读取、流式处理
 - **模板填充**: 支持基于模板的数据填充
 - **类型安全**: Rust类型系统保证，无运行时错误
+- **数字格式**: 百分比、货币、千分位、日期、时间、负数标红
+- **自定义格式**: 灵活的自定义数字格式支持
 
 ## 性能对比
 
@@ -43,6 +45,33 @@ writer.write_batch("Sheet1", |row, col| {
 writer.close().unwrap();
 ```
 
+### 数字格式
+
+```rust
+use rxlsb::CellData;
+
+// 百分比：12.30%
+let cell = CellData::percentage(0.123);
+
+// 千分位：-1,234.56
+let cell = CellData::number_with_comma(-1234.56);
+
+// 负数标红：-500.00（显示为红色）
+let cell = CellData::number_negative_red(-500.0);
+
+// 货币：￥1,234.56
+let cell = CellData::currency(1234.56);
+
+// 日期：5/1/2026 10:40
+let cell = CellData::date_from_timestamp(1714560000);
+
+// 时间：10:40:00
+let cell = CellData::time(1714560000);
+
+// 自定义格式
+let cell = CellData::number_with_format(123.45, "#,##0.00");
+```
+
 ### 读取XLSB文件
 
 ```rust
@@ -68,7 +97,7 @@ println!("Read {} rows", rows.len());
 
 ```toml
 [dependencies]
-rxlsb = "0.1"
+rxlsb = "0.2"
 ```
 
 ## API概览
@@ -77,12 +106,14 @@ rxlsb = "0.1"
 
 ```rust
 pub enum CellData {
-    Text(String),      // 文本字符串
-    Number(f64),       // 数值（IEEE 754双精度）
-    Date(DateTime<Utc>), // 日期时间
-    Bool(bool),        // 布尔值
-    Blank,             // 空单元格
-    Error(CellError),  // 错误值（#DIV/0!、#VALUE!等）
+    Text(String),               // 文本字符串
+    Number(f64),                // 数值（IEEE 754双精度）
+    NumberWithFormat(f64, String), // 带格式的数值
+    Date(DateTime<Utc>),        // 日期时间
+    DateWithFormat(i64, String), // 带格式的日期
+    Bool(bool),                 // 布尔值
+    Blank,                      // 空单元格
+    Error(CellError),           // 错误值（#DIV/0!、#VALUE!等）
 }
 ```
 
@@ -107,10 +138,12 @@ pub enum CellData {
 
 - ✅ 核心读写功能完整
 - ✅ 模板填充支持
-- ✅ 所有测试通过（9个测试）
+- ✅ 数字格式支持（百分比、货币、日期、时间、自定义）
+- ✅ 所有测试通过
 - ✅ 性能优化（全面超过Java jxlsb）
 - ✅ API文档完整
-- 🚧 更多单元格类型支持（公式、富文本）
+- 🚧 公式单元格支持（计划0.3.0版本）
+- 🚧 富文本单元格支持
 - 🚧 图表支持
 
 ## 相关项目

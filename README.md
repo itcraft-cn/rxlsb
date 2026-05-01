@@ -11,6 +11,8 @@ A pure Rust implementation for reading and writing Excel XLSB (Binary) files wit
 - **Streaming API**: Batch write, paginated read, stream processing
 - **Template Filling**: Data filling based on existing templates
 - **Type Safe**: Rust type system guarantees, no runtime errors
+- **Number Formats**: Percentage, currency, thousand separator, date, time, negative red
+- **Custom Formats**: Flexible custom number format support
 
 ## Performance Comparison
 
@@ -43,6 +45,33 @@ writer.write_batch("Sheet1", |row, col| {
 writer.close().unwrap();
 ```
 
+### Number Formats
+
+```rust
+use rxlsb::CellData;
+
+// Percentage: 12.30%
+let cell = CellData::percentage(0.123);
+
+// Thousand separator: -1,234.56
+let cell = CellData::number_with_comma(-1234.56);
+
+// Negative red: -500.00 (displayed in red)
+let cell = CellData::number_negative_red(-500.0);
+
+// Currency: ￥1,234.56
+let cell = CellData::currency(1234.56);
+
+// Date: 5/1/2026 10:40
+let cell = CellData::date_from_timestamp(1714560000);
+
+// Time: 10:40:00
+let cell = CellData::time(1714560000);
+
+// Custom format
+let cell = CellData::number_with_format(123.45, "#,##0.00");
+```
+
 ### Reading XLSB Files
 
 ```rust
@@ -68,7 +97,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rxlsb = "0.1"
+rxlsb = "0.2"
 ```
 
 ## API Overview
@@ -77,12 +106,14 @@ rxlsb = "0.1"
 
 ```rust
 pub enum CellData {
-    Text(String),      // Text string
-    Number(f64),       // Number (IEEE 754 double)
-    Date(DateTime<Utc>), // Date/Time
-    Bool(bool),        // Boolean
-    Blank,             // Empty cell
-    Error(CellError),  // Error value (#DIV/0!, #VALUE!, etc.)
+    Text(String),               // Text string
+    Number(f64),                // Number (IEEE 754 double)
+    NumberWithFormat(f64, String), // Number with custom format
+    Date(DateTime<Utc>),        // Date/Time
+    DateWithFormat(i64, String), // Date with format string
+    Bool(bool),                 // Boolean
+    Blank,                      // Empty cell
+    Error(CellError),           // Error value (#DIV/0!, #VALUE!, etc.)
 }
 ```
 
@@ -107,10 +138,12 @@ pub enum CellData {
 
 - ✅ Core read/write functionality complete
 - ✅ Template filling support
-- ✅ All tests passing (9 tests)
+- ✅ Number format support (percentage, currency, date, time, custom)
+- ✅ All tests passing
 - ✅ Performance optimized (outperforming Java jxlsb)
 - ✅ API documentation complete
-- 🚧 More cell types support (formula, rich text)
+- 🚧 Formula cells support (planned for 0.3.0)
+- 🚧 Rich text cells support
 - 🚧 Chart support
 
 ## Related Projects
