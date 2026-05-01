@@ -52,11 +52,11 @@ impl StylesRegistry {
         
         for (i, style) in self.styles.iter().enumerate() {
             if style.num_fmt_id == format_id {
-                return i as u32;
+                return (i + 1) as u32;
             }
         }
         
-        self.add_style(format_id, 0, 0, 0)
+        self.add_style(format_id, 0, 0, 0) + 1
     }
     
     #[allow(dead_code)]
