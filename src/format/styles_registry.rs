@@ -36,7 +36,7 @@ impl StylesRegistry {
         
         for (i, xf) in self.style_xfs.iter().enumerate() {
             if xf.num_fmt_id == format_id {
-                return (i + 1) as u32; // +1: styles列表索引 → 全局XF索引
+                return i as u32; // 返回styles列表索引，Excel/WPS会自动+1映射到XF[i+1]
             }
         }
         
@@ -47,7 +47,7 @@ impl StylesRegistry {
             border_id: 0,
         });
         
-        self.style_xfs.len() as u32 // len() = index+1 → 全局XF索引
+        (self.style_xfs.len() - 1) as u32 // 返回styles列表索引，Excel/WPS会自动+1映射
     }
     
     #[allow(dead_code)]
