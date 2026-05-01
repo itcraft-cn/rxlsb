@@ -214,7 +214,7 @@ impl StylesRegistry {
                 0x00, 0x00, 0x00, 0x00,                      // unused
                 0x00, 0x00, 0x00, 0x00,                      // unused
                 0x08, 0x10,                                  // flags
-                if is_first { 0x00 } else { idx as u8 },    // styleId
+                if is_first { 0x00 } else { 0x01 },         // styleId (jxlsb uses 0x01 for all)
                 0x00                                          // unused
             ]);
         }
