@@ -60,9 +60,9 @@ impl CellData {
     /// 创建日期单元格
     pub fn date(d: DateTime<Utc>) -> Self { CellData::Date(d) }
     
-    /// 创建日期单元格（时间戳）
+    /// 创建日期单元格（时间戳，默认格式"m/d/yy h:mm"）
     pub fn date_from_timestamp(timestamp: i64) -> Self {
-        CellData::DateWithFormat(timestamp, "mm-dd-yy".to_string())
+        CellData::DateWithFormat(timestamp, "m/d/yy h:mm".to_string())
     }
     
     /// 创建日期单元格带格式
