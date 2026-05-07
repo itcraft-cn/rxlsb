@@ -49,6 +49,14 @@ impl<'a> SheetReader<'a> {
                     cells.push(CellData::number(value));
                 }
                 
+                Some(RecordType::BrtCellRk) => {
+                    let _col = self.reader.read_u32_le()?;
+                    self.reader.skip(4)?;
+                    let rk_bytes = self.reader.read_u32_le()?;
+                    let value = Self::decode_rk(rk_bytes);
+                    cells.push(CellData::number(value));
+                }
+                
                 Some(RecordType::BrtCellSt) => {
                     let _col = self.reader.read_u32_le()?;
                     self.reader.skip(4)?;
@@ -135,6 +143,16 @@ impl<'a> SheetReader<'a> {
                     }
                 }
                 
+                Some(RecordType::BrtCellRk) => {
+                    let _col = self.reader.read_u32_le()?;
+                    self.reader.skip(4)?;
+                    let rk_bytes = self.reader.read_u32_le()?;
+                    let value = Self::decode_rk(rk_bytes);
+                    if in_range {
+                        cells.push(CellData::number(value));
+                    }
+                }
+                
                 Some(RecordType::BrtCellSt) => {
                     let _col = self.reader.read_u32_le()?;
                     self.reader.skip(4)?;
@@ -185,5 +203,27 @@ impl<'a> SheetReader<'a> {
         }
         
         Ok(result)
+    }
+    
+    fn decode_rk(rk: u32) -> f64 {
+        let is_int = (rk & 0x02) != 0;
+        let div_100 = (rk & 0x01) != 0;
+        
+        if is_int {
+            let value = ((rk as i32) >> 2) as f64;
+            if div_100 {
+                value / 100.0
+            } else {
+                value
+            }
+        } else {
+            let bits = ((rk as u64 & 0xFFFFFFFC) as u64) << 32;
+            let value = f64::from_bits(bits);
+            if div_100 {
+                value / 100.0
+            } else {
+                value
+            }
+        }
     }
 }

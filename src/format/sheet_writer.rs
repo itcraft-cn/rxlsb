@@ -6,6 +6,9 @@ use bytes::Bytes;
 use chrono::{TimeZone, Utc, DateTime};
 use once_cell::sync::Lazy;
 
+const MIN_RK_INTEGER: i32 = -536870912;
+const MAX_RK_INTEGER: i32 = 536870911;
+
 static EXCEL_EPOCH: Lazy<DateTime<Utc>> = Lazy::new(|| {
     Utc.with_ymd_and_hms(1899, 12, 30, 0, 0, 0)
         .single()
@@ -263,11 +266,19 @@ impl<'a> SheetWriter<'a> {
                 self.write_cell_isst(row, col, sst_idx)?;
             }
             CellData::Number(n) => {
-                self.write_cell_real(row, col, n)?;
+                if self.can_use_rk(n) {
+                    self.write_cell_rk(row, col, n as i32)?;
+                } else {
+                    self.write_cell_real(row, col, n)?;
+                }
             }
             CellData::NumberWithFormat(n, format) => {
                 let style_idx = self.styles.get_style_id_for_format(&format);
-                self.write_cell_real_with_style(row, col, n, style_idx)?;
+                if self.can_use_rk(n) {
+                    self.write_cell_rk_with_style(row, col, n as i32, style_idx)?;
+                } else {
+                    self.write_cell_real_with_style(row, col, n, style_idx)?;
+                }
             }
             CellData::Bool(b) => {
                 self.write_cell_bool(row, col, b)?;
@@ -307,6 +318,39 @@ impl<'a> SheetWriter<'a> {
         self.buffer.write_u24_le(style_idx);
         self.buffer.write_u8(0x00);
         self.buffer.write_f64_le(value);
+        Ok(())
+    }
+    
+    fn can_use_rk(&self, value: f64) -> bool {
+        if value.fract() != 0.0 {
+            return false;
+        }
+        let int_val = value as i32;
+        int_val >= MIN_RK_INTEGER && int_val <= MAX_RK_INTEGER
+    }
+    
+    fn write_cell_rk(&mut self, _row: u32, col: u32, value: i32) -> Result<()> {
+        self.buffer.write_varint(RecordType::BrtCellRk.to_u32());
+        self.buffer.write_varsize(12);
+        self.buffer.write_u32_le(col);
+        self.buffer.write_bytes(&[0x00, 0x00, 0x00, 0x00]);
+        
+        let bits = (value as f64).to_bits();
+        let rk = (bits >> 32) as u32;
+        self.buffer.write_u32_le(rk);
+        Ok(())
+    }
+    
+    fn write_cell_rk_with_style(&mut self, _row: u32, col: u32, value: i32, style_idx: u32) -> Result<()> {
+        self.buffer.write_varint(RecordType::BrtCellRk.to_u32());
+        self.buffer.write_varsize(12);
+        self.buffer.write_u32_le(col);
+        self.buffer.write_u24_le(style_idx);
+        self.buffer.write_u8(0x00);
+        
+        let bits = (value as f64).to_bits();
+        let rk = (bits >> 32) as u32;
+        self.buffer.write_u32_le(rk);
         Ok(())
     }
     
