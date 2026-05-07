@@ -1,5 +1,4 @@
 pub mod record_types;
-pub mod biff12;
 pub mod number_format;
 pub mod sst_table;
 pub mod styles_registry;
