@@ -306,7 +306,8 @@ impl<'a> SheetWriter<'a> {
         self.buffer.write_varint(RecordType::BrtCellReal.to_u32());
         self.buffer.write_varsize(16);
         self.buffer.write_u32_le(col);
-        self.buffer.write_bytes(&[0x00, 0x00, 0x00, 0x00]);
+        self.buffer.write_u24_le(0);
+        self.buffer.write_u8(0x00);
         self.buffer.write_f64_le(value);
         Ok(())
     }
@@ -333,7 +334,8 @@ impl<'a> SheetWriter<'a> {
         self.buffer.write_varint(RecordType::BrtCellRk.to_u32());
         self.buffer.write_varsize(12);
         self.buffer.write_u32_le(col);
-        self.buffer.write_bytes(&[0x00, 0x00, 0x00, 0x00]);
+        self.buffer.write_u24_le(0);
+        self.buffer.write_u8(0x00);
         
         let bits = (value as f64).to_bits();
         let rk = (bits >> 32) as u32;
@@ -369,7 +371,8 @@ impl<'a> SheetWriter<'a> {
         self.buffer.write_varint(RecordType::BrtCellIsst.to_u32());
         self.buffer.write_varsize(12);
         self.buffer.write_u32_le(col);
-        self.buffer.write_bytes(&[0x00, 0x00, 0x00, 0x00]);
+        self.buffer.write_u24_le(0);
+        self.buffer.write_u8(0x00);
         self.buffer.write_u32_le(sst_idx);
         Ok(())
     }
@@ -378,7 +381,8 @@ impl<'a> SheetWriter<'a> {
         self.buffer.write_varint(RecordType::BrtCellBool.to_u32());
         self.buffer.write_varsize(9);
         self.buffer.write_u32_le(col);
-        self.buffer.write_bytes(&[0x00, 0x00, 0x00]);
+        self.buffer.write_u24_le(0);
+        self.buffer.write_u8(0x00);
         self.buffer.write_u8(value as u8);
         Ok(())
     }
@@ -387,7 +391,8 @@ impl<'a> SheetWriter<'a> {
         self.buffer.write_varint(RecordType::BrtCellBlank.to_u32());
         self.buffer.write_varsize(8);
         self.buffer.write_u32_le(col);
-        self.buffer.write_bytes(&[0x00, 0x00, 0x00, 0x00]);
+        self.buffer.write_u24_le(0);
+        self.buffer.write_u8(0x00);
         Ok(())
     }
     
