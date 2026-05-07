@@ -64,7 +64,7 @@ impl TemplateFiller {
         let mut archive = ZipArchive::new(file)?;
         
         let sst_data = Self::load_entry(&mut archive, "xl/sharedStrings.bin")?;
-        let sst = Self::parse_sst(&sst_data);
+        let sst = SstTable::deserialize(Bytes::copy_from_slice(&sst_data))?;
         
         let sst_strings: Vec<String> = (0..sst.count())
             .map(|i| sst.get_string(i as u32).unwrap_or("").to_string())
@@ -95,50 +95,8 @@ impl TemplateFiller {
         let mut data = Vec::new();
         std::io::Read::read_to_end(&mut file, &mut data)?;
         Ok(data)
-    }
-    
-    fn parse_sst(data: &[u8]) -> SstTable {
-        let mut sst = SstTable::new();
-        let _reader = BufferReader::new(Bytes::copy_from_slice(data));
-        let mut pos = 0;
-        
-        while pos + 2 < data.len() {
-            let record_type = if data[pos] >= 128 {
-                pos += 2;
-                ((data[pos-2] & 0x7F) as u32) | ((data[pos-1] & 0x7F) << 7) as u32
-            } else {
-                pos += 1;
-                data[pos-1] as u32
-            };
-            
-            let record_size = if data[pos] >= 128 {
-                pos += 2;
-                ((data[pos-2] & 0x7F) as u32) | ((data[pos-1] as u32) << 7)
-            } else {
-                pos += 1;
-                data[pos-1] as u32
-            };
-            
-            if pos + record_size as usize > data.len() { break; }
-            
-            if record_type == crate::format::RecordType::BrtSstItem.to_u32() {
-                let _flags = data[pos];
-                let char_count = u32::from_le_bytes([data[pos+1], data[pos+2], data[pos+3], data[pos+4]]);
-                let mut chars = Vec::with_capacity(char_count as usize);
-                for j in 0..char_count as usize {
-                    let ch = u16::from_le_bytes([data[pos+5+j*2], data[pos+6+j*2]]);
-                    chars.push(ch);
-                }
-                let text = String::from_utf16(&chars).unwrap_or_default();
-                sst.add_string(&text);
-            }
-            
-            pos += record_size as usize;
-        }
-        
-        sst
-    }
-    
+}
+
     fn count_sheets(data: &[u8]) -> usize {
         let mut count = 0;
         for i in 0..data.len().saturating_sub(1) {
