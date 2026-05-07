@@ -64,7 +64,9 @@ impl<'a> SheetWriter<'a> {
             self.write_row_header(row, col_count)?;
             for col in 0..col_count {
                 let cell_data = supplier.get_cell(row, col);
-                self.write_cell(row as u32, col as u32, cell_data)?;
+                if !matches!(cell_data, CellData::Blank) {
+                    self.write_cell(row as u32, col as u32, cell_data)?;
+                }
             }
             if row > self.max_row {
                 self.max_row = row;
@@ -124,7 +126,9 @@ impl<'a> SheetWriter<'a> {
             self.write_row_header(row, col_count)?;
             for col in 0..col_count {
                 let cell_data = supplier.get_cell(row, col);
-                self.write_cell(row as u32, col as u32, cell_data)?;
+                if !matches!(cell_data, CellData::Blank) {
+                    self.write_cell(row as u32, col as u32, cell_data)?;
+                }
             }
         }
         
