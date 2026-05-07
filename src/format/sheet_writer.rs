@@ -1,8 +1,16 @@
 use crate::io::BufferWriter;
 use crate::format::{RecordType, SstTable, StylesRegistry};
 use crate::api::{CellData, CellSupplier};
-use crate::error::Result;
+use crate::error::{Result, XlsbError};
 use bytes::Bytes;
+use chrono::{TimeZone, Utc, DateTime};
+use once_cell::sync::Lazy;
+
+static EXCEL_EPOCH: Lazy<DateTime<Utc>> = Lazy::new(|| {
+    Utc.with_ymd_and_hms(1899, 12, 30, 0, 0, 0)
+        .single()
+        .expect("Excel epoch (1899-12-30 00:00:00 UTC) must exist")
+});
 
 pub struct SheetWriter<'a> {
     buffer: BufferWriter,
@@ -276,7 +284,7 @@ impl<'a> SheetWriter<'a> {
             }
             CellData::DateWithFormat(timestamp, format) => {
                 let style_idx = self.styles.get_style_id_for_format(&format);
-                let excel_serial = self.timestamp_to_excel_serial(timestamp);
+                let excel_serial = self.timestamp_to_excel_serial(timestamp)?;
                 self.write_cell_real_with_style(row, col, excel_serial, style_idx)?;
             }
         }
@@ -292,13 +300,13 @@ impl<'a> SheetWriter<'a> {
         Ok(())
     }
     
-fn write_cell_real_with_style(&mut self, _row: u32, col: u32, value: f64, style_idx: u32) -> Result<()> {
+    fn write_cell_real_with_style(&mut self, _row: u32, col: u32, value: f64, style_idx: u32) -> Result<()> {
         self.buffer.write_varint(RecordType::BrtCellReal.to_u32());
         self.buffer.write_varsize(16);
-        self.buffer.write_u32_le(col);        // 4字节
-        self.buffer.write_u24_le(style_idx);  // 3字节
-        self.buffer.write_u8(0x00);           // 1字节
-        self.buffer.write_f64_le(value);      // 8字节
+        self.buffer.write_u32_le(col);
+        self.buffer.write_u24_le(style_idx);
+        self.buffer.write_u8(0x00);
+        self.buffer.write_f64_le(value);
         Ok(())
     }
     
@@ -339,20 +347,19 @@ fn write_cell_real_with_style(&mut self, _row: u32, col: u32, value: f64, style_
         Ok(())
     }
     
-    fn excel_date_serial(&self, dt: &chrono::DateTime<chrono::Utc>) -> f64 {
-        use chrono::TimeZone;
-        let excel_epoch = chrono::Utc.with_ymd_and_hms(1899, 12, 30, 0, 0, 0).unwrap();
-        let duration = dt.signed_duration_since(excel_epoch);
+    fn excel_date_serial(&self, dt: &DateTime<Utc>) -> f64 {
+        let duration = dt.signed_duration_since(*EXCEL_EPOCH);
         let days = duration.num_days() as f64;
         let seconds = duration.num_seconds() % 86400;
         let fractional_day = seconds as f64 / 86400.0;
         days + fractional_day
     }
     
-    fn timestamp_to_excel_serial(&self, timestamp: i64) -> f64 {
-        use chrono::TimeZone;
-        let dt = chrono::Utc.timestamp_opt(timestamp, 0).unwrap();
-        self.excel_date_serial(&dt)
+    fn timestamp_to_excel_serial(&self, timestamp: i64) -> Result<f64> {
+        let dt = Utc.timestamp_opt(timestamp, 0)
+            .single()
+            .ok_or_else(|| XlsbError::InvalidFormat(format!("Invalid timestamp: {}", timestamp)))?;
+        Ok(self.excel_date_serial(&dt))
     }
     
     pub fn serialize(&self) -> Bytes {

@@ -7,6 +7,14 @@ use crate::api::{CellData, CellSupplier};
 use crate::io::{BufferWriter, BufferReader};
 use crate::container::XlsbContainerWriter;
 use bytes::Bytes;
+use chrono::{TimeZone, Utc, DateTime};
+use once_cell::sync::Lazy;
+
+static EXCEL_EPOCH: Lazy<DateTime<Utc>> = Lazy::new(|| {
+    Utc.with_ymd_and_hms(1899, 12, 30, 0, 0, 0)
+        .single()
+        .expect("Excel epoch must exist")
+});
 
 pub struct FillResult {
     pub start_row: u32,
@@ -210,22 +218,16 @@ impl TemplateFiller {
     }
     
     pub fn fill_rows(&mut self, data: Vec<Vec<CellData>>) -> Result<()> {
-        if self.streaming.is_none() {
-            return Err(XlsbError::InvalidArgument("Fill not started, call start_fill first"));
-        }
-        
-        let streaming = self.streaming.as_mut().unwrap();
+        let streaming = self.streaming.as_mut()
+            .ok_or_else(|| XlsbError::InvalidArgument("Fill not started, call start_fill first"))?;
         streaming.accumulated_data.extend(data);
         
         Ok(())
     }
     
     pub fn end_fill(&mut self) -> Result<()> {
-        if self.streaming.is_none() {
-            return Err(XlsbError::InvalidArgument("Fill not started"));
-        }
-        
-        let streaming = self.streaming.take().unwrap();
+        let streaming = self.streaming.take()
+            .ok_or_else(|| XlsbError::InvalidArgument("Fill not started"))?;
         
         if streaming.accumulated_data.is_empty() {
             return Ok(());
@@ -348,7 +350,7 @@ impl TemplateFiller {
                     for col in f.start_col..f.start_col + f.col_count {
                         let data_col = (col - f.start_col) as usize;
                         if data_row < f.data.len() && data_col < f.data[data_row].len() {
-                            Self::write_cell(&mut writer, col, &f.data[data_row][data_col], &mut self.sst);
+                            Self::write_cell(&mut writer, col, &f.data[data_row][data_col], &mut self.sst)?;
                         }
                     }
                     continue;
@@ -452,7 +454,7 @@ impl TemplateFiller {
         }
     }
     
-    fn write_cell(writer: &mut BufferWriter, col: u32, data: &CellData, sst: &mut SstTable) {
+    fn write_cell(writer: &mut BufferWriter, col: u32, data: &CellData, sst: &mut SstTable) -> Result<()> {
         match data {
             CellData::Text(s) if s.len() <= 3 => Self::write_cell_st(writer, col, 0, s),
             CellData::Text(s) => Self::write_cell_isst(writer, col, 0, sst.add_string(s)),
@@ -461,9 +463,13 @@ impl TemplateFiller {
             CellData::Bool(b) => Self::write_cell_bool(writer, col, 0, *b),
             CellData::Blank => Self::write_cell_blank(writer, col, 0),
             CellData::Date(d) => Self::write_cell_real(writer, col, 0, Self::excel_date(d)),
-            CellData::DateWithFormat(timestamp, _) => Self::write_cell_real(writer, col, 0, Self::timestamp_to_excel(*timestamp)),
+            CellData::DateWithFormat(timestamp, _) => {
+                let excel_serial = Self::timestamp_to_excel(*timestamp)?;
+                Self::write_cell_real(writer, col, 0, excel_serial);
+            }
             CellData::Error(_) => Self::write_cell_blank(writer, col, 0),
         }
+        Ok(())
     }
     
     fn write_template_cell(writer: &mut BufferWriter, cell: &CellInfo, sst: &mut SstTable) {
@@ -539,17 +545,16 @@ impl TemplateFiller {
         writer.write_varsize(0);
     }
     
-    fn excel_date(dt: &chrono::DateTime<chrono::Utc>) -> f64 {
-        use chrono::TimeZone;
-        let epoch = chrono::Utc.with_ymd_and_hms(1899, 12, 30, 0, 0, 0).unwrap();
-        let dur = dt.signed_duration_since(epoch);
+    fn excel_date(dt: &DateTime<Utc>) -> f64 {
+        let dur = dt.signed_duration_since(*EXCEL_EPOCH);
         dur.num_days() as f64 + (dur.num_seconds() % 86400) as f64 / 86400.0
     }
     
-    fn timestamp_to_excel(timestamp: i64) -> f64 {
-        use chrono::TimeZone;
-        let dt = chrono::Utc.timestamp_opt(timestamp, 0).unwrap();
-        Self::excel_date(&dt)
+    fn timestamp_to_excel(timestamp: i64) -> Result<f64> {
+        let dt = Utc.timestamp_opt(timestamp, 0)
+            .single()
+            .ok_or_else(|| XlsbError::InvalidFormat(format!("Invalid timestamp: {}", timestamp)))?;
+        Ok(Self::excel_date(&dt))
     }
 }
 

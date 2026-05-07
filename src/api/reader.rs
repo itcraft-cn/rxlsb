@@ -57,7 +57,8 @@ impl XlsbReader {
         let styles = StylesRegistry::new();
         
         let sst = if container.has_entry("xl/sharedStrings.bin") {
-            let sst_data = container.get_sst_data()?.unwrap();
+            let sst_data = container.get_sst_data()?
+                .ok_or_else(|| XlsbError::InvalidArgument("SST data not found"))?;
             Some(SstTable::deserialize(sst_data)?)
         } else {
             None
