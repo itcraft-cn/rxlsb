@@ -28,11 +28,14 @@ impl SstTable {
     pub fn add_string(&mut self, s: &str) -> u32 {
         self.total_count += 1;
         
-        if let Some(idx) = self.hash_map.get(s) { return *idx; }
+        if let Some(idx) = self.hash_map.get(s) {
+            return *idx;
+        }
         
         let idx = self.strings.len() as u32;
-        self.strings.push(s.to_string());
-        self.hash_map.insert(s.to_string(), idx);
+        let s_owned = s.to_string();
+        self.strings.push(s_owned.clone());
+        self.hash_map.insert(s_owned, idx);
         idx
     }
     
