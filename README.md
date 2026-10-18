@@ -1,37 +1,37 @@
-[中文文档](README_cn.md) | English
+**中文** | [English](README_en.md)
 
-# rxlsb - High Performance XLSB Library for Rust
+# rxlsb - Rust高性能XLSB文件读写库
 
-A pure Rust implementation for reading and writing Excel XLSB (Binary) files with exceptional performance.
+纯Rust实现的Excel XLSB（二进制）格式读写库，提供卓越的性能。
 
-## Design Positioning
+## 设计定位
 
-This library has a fixed starting point: **high-performance data output (writing)**. Reading was originally meant only for consuming templates. But once reading was in place, high-performance reading became a natural extension of the same core.
+本库的出发点始终明确：**做高性能的数据输出（写入）**。读取最初只是为了读模板；但读一旦做了，高性能读也就顺理成章地成为同一内核的自然延伸。
 
-Viewed from this narrow, output-oriented angle, XLSX is simply not needed — XLSB is more than capable.
+站在这个窄应用视角看，XLSX 其实并不需要——XLSB 已经非常能打。
 
-## Features
+## 核心特性
 
-- **High Performance**: 200K rows/sec write, 2.3M rows/sec read, outperforming Java jxlsb
-- **Zero-copy**: Bytes-based architecture minimizing memory copying
-- **Streaming API**: Batch write, paginated read, stream processing
-- **Template Filling**: Data filling based on existing templates
-- **Type Safe**: Rust type system guarantees, no runtime errors
-- **Number Formats**: Percentage, currency, thousand separator, date, time, negative red
-- **Custom Formats**: Flexible custom number format support
+- **高性能**: 写入200K行/秒，读取2.3M行/秒，全面超过Java jxlsb
+- **零拷贝**: 基于Bytes架构，最小化内存复制
+- **流式API**: 支持批量写入、分页读取、流式处理
+- **模板填充**: 支持基于模板的数据填充
+- **类型安全**: Rust类型系统保证，无运行时错误
+- **数字格式**: 百分比、货币、千分位、日期、时间、负数标红
+- **自定义格式**: 灵活的自定义数字格式支持
 
-## Performance Comparison
+## 性能对比
 
-| Operation | rxlsb (Rust) | jxlsb (Java) | Improvement |
-|-----------|-------------|-------------|-------------|
-| Stream Write | 201K/s | 137K/s | **+46%** |
-| Batch Write | 190K/s | 111K/s | **+71%** |
-| Stream Read | 2.3M/s | 1.95M/s | **+18%** |
-| Paginated Read | 31K/s | 10K/s | **+210%** |
+| 操作 | rxlsb (Rust) | jxlsb (Java) | 提升 |
+|------|-------------|-------------|------|
+| 流式写 | 201K/s | 137K/s | **+46%** |
+| 分页写 | 190K/s | 111K/s | **+71%** |
+| 流式读 | 2.3M/s | 1.95M/s | **+18%** |
+| 分页读 | 31K/s | 10K/s | **+210%** |
 
-## Quick Start
+## 快速开始
 
-### Writing XLSB Files
+### 写入XLSB文件
 
 ```rust
 use rxlsb::{XlsbWriter, CellData};
@@ -51,34 +51,34 @@ writer.write_batch("Sheet1", |row, col| {
 writer.close().unwrap();
 ```
 
-### Number Formats
+### 数字格式
 
 ```rust
 use rxlsb::CellData;
 
-// Percentage: 12.30%
+// 百分比：12.30%
 let cell = CellData::percentage(0.123);
 
-// Thousand separator: -1,234.56
+// 千分位：-1,234.56
 let cell = CellData::number_with_comma(-1234.56);
 
-// Negative red: -500.00 (displayed in red)
+// 负数标红：-500.00（显示为红色）
 let cell = CellData::number_negative_red(-500.0);
 
-// Currency: ￥1,234.56
+// 货币：￥1,234.56
 let cell = CellData::currency(1234.56);
 
-// Date: 5/1/2026 10:40
+// 日期：5/1/2026 10:40
 let cell = CellData::date_from_timestamp(1714560000);
 
-// Time: 10:40:00
+// 时间：10:40:00
 let cell = CellData::time(1714560000);
 
-// Custom format
+// 自定义格式
 let cell = CellData::number_with_format(123.45, "#,##0.00");
 ```
 
-### Reading XLSB Files
+### 读取XLSB文件
 
 ```rust
 use rxlsb::{XlsbReader, CellData};
@@ -87,106 +87,107 @@ use std::path::PathBuf;
 let path = PathBuf::from("output.xlsb");
 let mut reader = XlsbReader::builder().path(&path).build().unwrap();
 
-// Stream read
+// 流式读取
 reader.for_each_row(0, |row_idx, cells| {
     println!("Row {}: {} cells", row_idx, cells.len());
 }).unwrap();
 
-// Paginated read
+// 分页读取
 let rows = reader.read_rows(0, 0, 1000).unwrap();
 println!("Read {} rows", rows.len());
 ```
 
-## Installation
+## 安装
 
-Add to your `Cargo.toml`:
+添加到 `Cargo.toml`:
 
 ```toml
 [dependencies]
 rxlsb = "0.2"
 ```
 
-## API Overview
+## API概览
 
-### CellData Types
+### CellData数据类型
 
 ```rust
 pub enum CellData {
-    Text(String),               // Text string
-    Number(f64),                // Number (IEEE 754 double)
-    NumberWithFormat(f64, String), // Number with custom format
-    Date(DateTime<Utc>),        // Date/Time
-    DateWithFormat(i64, String), // Date with format string
-    Bool(bool),                 // Boolean
-    Blank,                      // Empty cell
-    Error(CellError),           // Error value (#DIV/0!, #VALUE!, etc.)
+    Text(String),               // 文本字符串
+    Number(f64),                // 数值（IEEE 754双精度）
+    NumberWithFormat(f64, String), // 带格式的数值
+    Date(DateTime<Utc>),        // 日期时间
+    DateWithFormat(i64, String), // 带格式的日期
+    Bool(bool),                 // 布尔值
+    Blank,                      // 空单元格
+    Error(CellError),           // 错误值（#DIV/0!、#VALUE!等）
 }
 ```
 
-### Write API
+### 写入API
 
-- `write_batch`: Batch write entire sheet, suitable for small-medium data
-- `start_sheet / write_rows / end_sheet`: Stream write, suitable for large data
+- `write_batch`: 批量写入整个sheet，适合中小数据量
+- `start_sheet / write_rows / end_sheet`: 流式写入，适合大数据量
 
-### Read API
+### 读取API
 
-- `for_each_row`: Stream read row by row, suitable for large data
-- `read_rows`: Paginated read batch data, suitable for pagination display
+- `for_each_row`: 流式读取逐行处理，适合大数据量
+- `read_rows`: 分页读取批量数据，适合分页展示
 
-## WPS/Excel Compatibility
+## WPS/Excel兼容性
 
-rxlsb has been fully verified with WPS Office and Microsoft Excel:
+rxlsb已通过WPS Office和Microsoft Excel完整验证：
 
-- ✅ **100% Compatibility**: All generated files open correctly in WPS/Excel
-- ✅ **Format Display**: Number formats (percentage, currency, date, time) display correctly
-- ✅ **Streaming API**: Files generated with streaming API match batch API quality
-- ✅ **Large Files**: 10,000+ row files open smoothly
-- ✅ **Multi-sheet**: Multiple sheets switch correctly
-- ✅ **Blank Cells**: Blank cells handled correctly (no display issues)
+- ✅ **100%兼容**: 所有生成的文件在WPS/Excel中正确打开
+- ✅ **格式显示**: 数字格式（百分比、货币、日期、时间）正确显示
+- ✅ **流式API**: 流式API生成的文件与批量API质量一致
+- ✅ **大文件**: 10,000+行文件流畅打开
+- ✅ **多sheet**: 多个工作表正确切换
+- ✅ **空白单元格**: 空白单元格正确处理（无显示问题）
 
-Verified test files available in `/tmp/`:
-- minimal_one.xlsb (1 row × 1 col)
-- test_stream_api.xlsb (100 rows × 4 cols)
-- verify_formats.xlsb (100 rows × 8 cols, multiple formats)
-- stream_large.xlsb (5000 rows)
-- verify_large.xlsb (10,000 rows)
+测试验证文件（位于 `/tmp/`）：
+- minimal_one.xlsb（1行×1列）
+- test_stream_api.xlsb（100行×4列）
+- verify_formats.xlsb（100行×8列，多种格式）
+- stream_large.xlsb（5000行）
+- verify_large.xlsb（10,000行）
 
-## Architecture
+## 架构设计
 
-- **Layer 1**: IO layer - BufferReader/BufferWriter (zero-copy Bytes)
-- **Layer 2**: Container layer - ZIP container reader/writer
-- **Layer 3**: Format layer - BIFF12 format serializer/deserializer
-- **Layer 4**: API layer - XlsbReader/XlsbWriter/TemplateFiller
+- **第1层**: IO层 - BufferReader/BufferWriter（零拷贝Bytes）
+- **第2层**: 容器层 - ZIP容器读写器
+- **第3层**: 格式层 - BIFF12格式序列化/反序列化
+- **第4层**: API层 - XlsbReader/XlsbWriter/TemplateFiller
 
-## Project Status
+## 项目状态
 
-- ✅ Core read/write functionality complete
-- ✅ Template filling support
-- ✅ Number format support (percentage, currency, date, time, custom)
-- ✅ WPS/Excel compatibility 100% verified
-- ✅ All tests passing
-- ✅ Performance optimized (outperforming Java jxlsb)
-- ✅ API documentation complete
-- ✅ Streaming API fully tested (start/write/end)
-- ✅ BIFF12 format correctly implemented
-- 🚧 Formula cells support (planned for v0.4.0)
-- 🚧 Rich text cells support
-- 🚧 Chart support
+- ✅ 核心读写功能完整
+- ✅ 模板填充支持
+- ✅ 数字格式支持（百分比、货币、日期、时间、自定义）
+- ✅ WPS/Excel兼容性100%验证通过
+- ✅ 所有测试通过
+- ✅ 性能优化（全面超过Java jxlsb）
+- ✅ API文档完整
+- ✅ 流式API完整测试（start/write/end）
+- ✅ BIFF12格式正确实现
+- 🚧 公式单元格支持（计划v0.4.0版本）
+- 🚧 富文本单元格支持
+- 🚧 图表支持
 
-## Related Projects
+## 相关项目
 
-- [jxlsb](https://github.com/itcraft-cn/jxlsb) - Java implementation
-- [cxlsb](https://github.com/itcraft-cn/cxlsb) - ANSI C implementation
-- [jsxlsb](https://github.com/itcraft-cn/jsxlsb) - Node.js implementation
+- [jxlsb](https://github.com/itcraft-cn/jxlsb) - Java实现
+- [cxlsb](https://github.com/itcraft-cn/cxlsb) - ANSI C实现
+- [jsxlsb](https://github.com/itcraft-cn/jsxlsb) - Node.js实现
 
-## License
+## 许可证
 
 MIT License
 
-## Contributing
+## 贡献指南
 
-Contributions welcome! Please read the contributing guidelines before submitting PRs.
+欢迎贡献代码！提交PR前请阅读贡献指南。
 
-## Changelog
+## 相关文档
 
-See [CHANGELOG.md](CHANGELOG.md) for version history.
+- [使用手册](MANUAL.md) — 安装、构建、API 用法与示例
+- [变更日志](CHANGELOG.md) — 版本历史

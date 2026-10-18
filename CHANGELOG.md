@@ -1,50 +1,59 @@
-# Changelog
+**中文** | [English](CHANGELOG_en.md)
 
-All notable changes to this project will be documented in this file.
+# 变更日志
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+本项目所有值得注意的变更都记录在此文件中。
+
+格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
+本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
+
+## [未发布]
+
+### 变更
+
+- 文档：新增「设计定位」章节
+- 版本：进入 0.4.0-dev
 
 ## [0.3.0] - 2026-05-07
 
-### Added
+### 新增
 
-- **Streaming API complete testing suite**:
-  - `start_sheet / write_rows / end_sheet` fully tested
-  - Verified 100% compatibility with batch API
-  - Multi-sheet streaming support tested
-  - Batch append mode tested (seamless concatenation)
-  - Large data streaming tested (5000 rows)
+- **流式 API 完整测试套件**：
+  - `start_sheet / write_rows / end_sheet` 全面测试
+  - 验证与批量 API 100% 兼容
+  - 多工作表流式支持测试
+  - 批量追加模式测试（无缝拼接）
+  - 大数据流式测试（5000 行）
 
-- **Comprehensive test examples**:
-  - `minimal_one.rs`: Minimal single-cell test (1×1)
-  - `test_stream_api.rs`: Streaming API vs batch API comparison
-  - `streaming_full_test.rs`: Full streaming test suite
-  - `gen_verify.rs`: Complete verification file generator
+- **综合测试示例**：
+  - `minimal_one.rs`：最小单单元格测试（1×1）
+  - `test_stream_api.rs`：流式 API 与批量 API 对比
+  - `streaming_full_test.rs`：完整流式测试套件
+  - `gen_verify.rs`：完整验证文件生成器
 
-### Fixed
+### 修复
 
-- **Critical: WPS/Excel compatibility issues** ( [#issue](https://github.com/itcraft-cn/rxlsb/issues) )
-  - Fixed BrtWsFmtInfo RecordType value (229 → 485)
-  - Fixed cell structure: iStyleRef (3 bytes) + flags (1 byte)
-  - Fixed BrtCellRk encoding for integer optimization
-  - Fixed blank cell handling: skip blank cells (matches jxlsb behavior)
+- **严重：WPS/Excel 兼容性问题**
+  - 修正 BrtWsFmtInfo RecordType 值（229 → 485）
+  - 修正单元格结构：iStyleRef（3 字节）+ flags（1 字节）
+  - 修正 BrtCellRk 整数编码优化
+  - 修正空白单元格处理：跳过空白单元格（与 jxlsb 行为一致）
 
-- **BIFF12 format corrections**:
-  - BrtWsFmtInfo record type now correctly set to 485
-  - Cell records use proper structure: column(4) + iStyleRef(3) + flags(1)
-  - RK encoding for integers within [-536870912, 536870911] range
-  - Blank cells no longer generate BrtCellBlank records
+- **BIFF12 格式修正**：
+  - BrtWsFmtInfo 记录类型正确设为 485
+  - 单元格记录使用正确结构：column(4) + iStyleRef(3) + flags(1)
+  - 整数在 [-536870912, 536870911] 范围内使用 RK 编码
+  - 空白单元格不再生成 BrtCellBlank 记录
 
-### Performance
+### 性能
 
-- **File size optimization**: Blank cells skipped, reducing file size
-- **Integer optimization**: BrtCellRk (12 bytes) instead of BrtCellReal (16 bytes)
-- **No performance regression**: All operations maintain high throughput
+- **文件体积优化**：跳过空白单元格，减小文件体积
+- **整数优化**：使用 BrtCellRk（12 字节）替代 BrtCellReal（16 字节）
+- **无性能回退**：所有操作保持高吞吐
 
-### Tests
+### 测试
 
-- **WPS verification**: All generated files verified in WPS Office
+- **WPS 验证**：所有生成文件在 WPS Office 中验证通过
   - minimal_one.xlsb (1×1) ✓
   - minimal.xlsb (10×4) ✓
   - test_stream_api.xlsb (100×4) ✓
@@ -53,245 +62,245 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - verify_streaming.xlsb (200×4) ✓
   - verify_large.xlsb (10,000×4) ✓
   - stream_single.xlsb (100×4) ✓
-  - stream_multi.xlsb (3 sheets) ✓
-  - stream_batch.xlsb (300 rows) ✓
+  - stream_multi.xlsb (3 个工作表) ✓
+  - stream_batch.xlsb (300 行) ✓
   - stream_large.xlsb (5000×4) ✓
 
-- **API consistency verification**:
-  - stream_api_test.xlsb == batch_api_test.xlsb (hex identical)
-  - Streaming API produces same quality files as batch API
+- **API 一致性验证**：
+  - stream_api_test.xlsb == batch_api_test.xlsb（十六进制完全相同）
+  - 流式 API 生成与批量 API 同等质量的文件
 
-### Technical Details
+### 技术细节
 
-- **BrtWsFmtInfo correction**:
-  - Old: RecordType = 229 (incorrect)
-  - New: RecordType = 485 (matches MS-XLSB spec 2.4.823)
+- **BrtWsFmtInfo 修正**：
+  - 旧：RecordType = 229（错误）
+  - 新：RecordType = 485（符合 MS-XLSB 规范 2.4.823）
 
-- **Cell structure correction**:
-  - Old: column(4) + style(4) = 8 bytes (incorrect)
-  - New: column(4) + iStyleRef(3) + flags(1) = 8 bytes (correct)
+- **单元格结构修正**：
+  - 旧：column(4) + style(4) = 8 字节（错误）
+  - 新：column(4) + iStyleRef(3) + flags(1) = 8 字节（正确）
 
-- **RK encoding support**:
-  - Range: [-536870912, 536870911] (±2^29)
-  - Encoding: IEEE 754 double high 32 bits
-  - Record: BrtCellRk (12 bytes) vs BrtCellReal (16 bytes)
+- **RK 编码支持**：
+  - 范围：[-536870912, 536870911]（±2^29）
+  - 编码：IEEE 754 double 高 32 位
+  - 记录：BrtCellRk（12 字节） vs BrtCellReal（16 字节）
 
-- **Blank cell optimization**:
-  - jxlsb behavior: Skip blank cells, no record generated
-  - rxlsb now matches: Blank cells not written
-  - Benefit: File size reduction, WPS compatibility
+- **空白单元格优化**：
+  - jxlsb 行为：跳过空白单元格，不生成记录
+  - rxlsb 现在一致：不写入空白单元格
+  - 收益：文件体积减小、WPS 兼容
 
-### Migration Guide (0.2.0 → 0.3.0)
+### 迁移指南（0.2.0 → 0.3.0）
 
-**No breaking changes**: All 0.2.0 API still works
+**无破坏性变更**：所有 0.2.0 API 仍然可用
 
-**New test examples**:
+**新增测试示例**：
 ```bash
-# Minimal test
-cargo run --example minimal_one
-
-# Streaming API test
-cargo run --example test_stream_api
-
-# Full verification
-cargo run --example gen_verify
+cargo run --example minimal_one          # 最小测试
+cargo run --example test_stream_api      # 流式 API 测试
+cargo run --example gen_verify           # 完整验证
 cargo run --example streaming_full_test
 ```
 
-**Verified files**:
-- All generated files now open correctly in WPS/Excel
-- Format display verified: percentage, currency, date, time
-- Large files tested: 5,000 and 10,000 rows
+**已验证文件**：
+- 所有生成文件现可在 WPS/Excel 中正确打开
+- 格式显示验证：百分比、货币、日期、时间
+- 大文件测试：5,000 与 10,000 行
 
-### Documentation
+### 文档
 
-- Updated README.md with WPS compatibility section
-- Updated README_cn.md with verification details
-- Added test example documentation
+- 更新 README 的 WPS 兼容性章节
+- 更新 README 的验证细节
+- 新增测试示例文档
 
 ## [0.2.0] - 2026-05-01
 
-### Added
+### 新增
 
-- **Number format support**: Complete implementation of cell number formats
-  - Percentage (0.00%)
-  - Currency (￥#,##0.00)
-  - Thousand separator (#,##0.00)
-  - Negative numbers with red color (#,##0.00;[Red]-#,##0.00)
-  - Date format (m/d/yy h:mm)
-  - Time format (h:mm:ss)
-  - Custom format support (ifmt 164+)
+- **数字格式支持**：单元格数字格式完整实现
+  - 百分比（0.00%）
+  - 货币（￥#,##0.00）
+  - 千分位（#,##0.00）
+  - 负数标红（#,##0.00;[Red]-#,##0.00）
+  - 日期格式（m/d/yy h:mm）
+  - 时间格式（h:mm:ss）
+  - 自定义格式支持（ifmt 164+）
 
-- **CellData API extensions**:
-  - `CellData::percentage(value)` - Percentage cells
-  - `CellData::percentage_with_decimals(value, decimals)` - Custom decimal percentage
-  - `CellData::number_with_comma(value)` - Thousand separator
-  - `CellData::number_negative_red(value)` - Negative numbers in red
-  - `CellData::currency(value)` - Currency format (￥ symbol)
-  - `CellData::currency_with_symbol(value, symbol)` - Custom currency symbol
-  - `CellData::number_with_format(value, format)` - Custom number format
-  - `CellData::date_from_timestamp(timestamp)` - Date from Unix timestamp
-  - `CellData::date_with_format(timestamp, format)` - Custom date format
-  - `CellData::time(timestamp)` - Time format
-  - `CellData::time_with_format(timestamp, format)` - Custom time format
+- **CellData API 扩展**：
+  - `CellData::percentage(value)` — 百分比单元格
+  - `CellData::percentage_with_decimals(value, decimals)` — 自定义小数百分比
+  - `CellData::number_with_comma(value)` — 千分位
+  - `CellData::number_negative_red(value)` — 负数标红
+  - `CellData::currency(value)` — 货币格式（￥ 符号）
+  - `CellData::currency_with_symbol(value, symbol)` — 自定义货币符号
+  - `CellData::number_with_format(value, format)` — 自定义数字格式
+  - `CellData::date_from_timestamp(timestamp)` — 由 Unix 时间戳生成日期
+  - `CellData::date_with_format(timestamp, format)` — 自定义日期格式
+  - `CellData::time(timestamp)` — 时间格式
+  - `CellData::time_with_format(timestamp, format)` — 自定义时间格式
 
-- **NumberFormatRegistry**: Manages built-in (0-22) and custom (164+) format IDs
-  - Automatic built-in format recognition
-  - Sequential custom format ID allocation
-  - Format string deduplication
+- **NumberFormatRegistry**：管理内置（0-22）与自定义（164+）格式 ID
+  - 自动识别内置格式
+  - 顺序分配自定义格式 ID
+  - 格式字符串去重
 
-- **StylesRegistry**: Dynamic style XF management
-  - Automatic style registration
-  - Format reuse optimization
-  - Correct styleIndex mapping mechanism
+- **StylesRegistry**：动态样式 XF 管理
+  - 自动注册样式
+  - 格式复用优化
+  - 正确的 styleIndex 映射机制
 
-- **Documentation**:
-  - `docs/style_index_mapping.md`: Complete styleIndex mapping mechanism documentation
-  - Built-in format ID reference (0-22)
-  - Custom format ID allocation strategy
+- **文档**：
+  - `docs/style_index_mapping.md`：完整的 styleIndex 映射机制文档
+  - 内置格式 ID 参考（0-22）
+  - 自定义格式 ID 分配策略
 
-- **Tools**:
-  - `tools/verify_style_index.py`: Python script to verify styleIndex mapping in XLSB files
+- **工具**：
+  - `tools/verify_style_index.py`：验证 XLSB 文件中 styleIndex 映射的 Python 脚本
 
-### Fixed
+### 修复
 
-- **Critical: styleIndex mapping mechanism**
-  - Discovered Excel/WPS auto +1 mapping: styles[i] → XF[i+1]
-  - `get_style_id_for_format` returns styles list index (not i+1)
-  - Verified with format_test.xlsb and format_test2.xlsb
-  - All format columns display correctly in WPS
+- **严重：styleIndex 映射机制**
+  - 发现 Excel/WPS 自动 +1 映射：styles[i] → XF[i+1]
+  - `get_style_id_for_format` 返回 styles 列表索引（而非 i+1）
+  - 使用 format_test.xlsb 与 format_test2.xlsb 验证
+  - 所有格式列在 WPS 中正确显示
 
-- **Date format correction**:
-  - `date_from_timestamp` uses "m/d/yy h:mm" (ifmt=22) instead of "mm-dd-yy" (ifmt=14)
-  - Matches jxlsb default date format
+- **日期格式修正**：
+  - `date_from_timestamp` 使用 "m/d/yy h:mm"（ifmt=22）而非 "mm-dd-yy"（ifmt=14）
+  - 与 jxlsb 默认日期格式一致
 
-- **NumberFormatRegistry built-in format recognition**:
-  - "m/d/yy h:mm" → ifmt=22 (built-in, not 164)
-  - "h:mm:ss" → ifmt=21 (built-in, not 164)
-  - Prevents unnecessary custom format allocation
+- **NumberFormatRegistry 内置格式识别**：
+  - "m/d/yy h:mm" → ifmt=22（内置，非 164）
+  - "h:mm:ss" → ifmt=21（内置，非 164）
+  - 避免不必要的自定义格式分配
 
-### Performance
+### 性能
 
-- No performance regression
-- Format registration: O(n) lookup, O(1) append
-- Style reuse: Format deduplication reduces XF count
+- 无性能回退
+- 格式注册：O(n) 查找，O(1) 追加
+- 样式复用：格式去重减少 XF 数量
 
-### Tests
+### 测试
 
-- Added format_test.rs example (matches jxlsb NumberFormatTest)
-- Added format_test2.rs example (verifies generalization)
-- All formats verified in WPS:
-  - Percentage, currency, thousand separator ✓
-  - Negative red, date, time ✓
-  - Different column order, different format combinations ✓
+- 新增 format_test.rs 示例（对应 jxlsb NumberFormatTest）
+- 新增 format_test2.rs 示例（验证泛化）
+- 所有格式在 WPS 中验证：
+  - 百分比、货币、千分位 ✓
+  - 负数标红、日期、时间 ✓
+  - 不同列顺序、不同格式组合 ✓
 
-### Technical Details
+### 技术细节
 
-- **XF Structure**:
-  - XF[0]: BrtBeginXFs (cell XF, ixf=0xffff)
-  - XF[1+]: BrtBeginStyles (style XF, ixf=0x0000)
+- **XF 结构**：
+  - XF[0]：BrtBeginXFs（单元格 XF，ixf=0xffff）
+  - XF[1+]：BrtBeginStyles（样式 XF，ixf=0x0000）
   - styles[i] → BrtBeginStyles[i] → XF[i+1]
 
-- **styleIndex Mapping** (Critical discovery):
-  - cell.styleIndex = styles list index (0-based)
-  - Excel/WPS auto +1 → global XF index
-  - Implementation: return i, NOT i+1
+- **styleIndex 映射**（关键发现）：
+  - cell.styleIndex = styles 列表索引（从 0 开始）
+  - Excel/WPS 自动 +1 → 全局 XF 索引
+  - 实现：返回 i，而非 i+1
 
-- **Format ID Allocation**:
-  - Built-in formats: 0-22 (Excel predefined)
-  - Custom formats: 164+ (sequential allocation)
-  - Built-in format strings return built-in IDs, not custom IDs
+- **格式 ID 分配**：
+  - 内置格式：0-22（Excel 预定义）
+  - 自定义格式：164+（顺序分配）
+  - 内置格式字符串返回内置 ID，而非自定义 ID
 
-### Known Issues
+### 已知问题
 
-- Formula cells not supported yet (planned for 0.3.0)
-- Rich text cells not supported yet
-- Charts not supported yet
-- Cell font, fill, border customization not supported (basic styles only)
+- 暂不支持公式单元格（计划于 0.3.0）
+- 暂不支持富文本单元格
+- 暂不支持图表
+- 暂不支持字体、填充、边框自定义（仅基础样式）
 
-### Migration Guide (0.1.0 → 0.2.0)
+### 迁移指南（0.1.0 → 0.2.0）
 
-**New API**:
+**新增 API**：
 ```rust
-// Number formats
+// 数字格式
 CellData::percentage(0.123)              // 12.30%
 CellData::number_with_comma(-1234.56)    // -1,234.56
-CellData::number_negative_red(-500.0)    // -500.00 (red)
+CellData::number_negative_red(-500.0)    // -500.00（红）
 CellData::currency(1234.56)              // ￥1,234.56
 
-// Date/Time formats
+// 日期/时间格式
 CellData::date_from_timestamp(1714560000)  // 5/1/2026 10:40
 CellData::time(1714560000)                  // 10:40:00
 ```
 
-**No breaking changes**: All 0.1.0 API still works
+**无破坏性变更**：所有 0.1.0 API 仍然可用
 
 ## [0.1.0] - 2026-04-30
 
-### Added
+### 新增
 
-- Initial release of rxlsb
-- Core read/write functionality for XLSB files
-- `XlsbReader` with stream and paginated read modes
-- `XlsbWriter` with batch and stream write modes
-- `TemplateFiller` for template-based data filling
-- `CellData` types: Text, Number, Date, Bool, Blank, Error
-- Zero-copy Bytes-based architecture
-- ZIP container with Deflated compression
-- BIFF12 format implementation
-- SST (Shared String Table) support
-- Performance benchmark (1M rows test)
+- rxlsb 首次发布
+- XLSB 文件核心读写功能
+- `XlsbReader`：流式与分页读取模式
+- `XlsbWriter`：批量与流式写入模式
+- `TemplateFiller`：基于模板的数据填充
+- `CellData` 类型：Text、Number、Date、Bool、Blank、Error
+- 零拷贝 Bytes 架构
+- Deflated 压缩的 ZIP 容器
+- BIFF12 格式实现
+- SST（共享字符串表）支持
+- 性能基准（1M 行测试）
 
-### Performance
+### 性能
 
-- Stream write: 201K rows/sec (+46% vs jxlsb)
-- Batch write: 190K rows/sec (+71% vs jxlsb)
-- Stream read: 2.3M rows/sec (+18% vs jxlsb)
-- Paginated read: 31K rows/sec (+210% vs jxlsb)
+- 流式写：201K 行/秒（相较 jxlsb +46%）
+- 批量写：190K 行/秒（+71%）
+- 流式读：2.3M 行/秒（+18%）
+- 分页读：31K 行/秒（+210%）
 
-### Fixed
+### 修复
 
-- BrtCellSt inline string format: VarInt → u32_le format
-- ZIP compression: Stored → Deflated (file size reduced from 220MB to 31MB)
-- Sheet cache for paginated read (10x performance improvement)
-- Cells clone elimination (zero-copy optimization)
+- BrtCellSt 内联字符串格式：VarInt → u32_le
+- ZIP 压缩：Stored → Deflated（文件从 220MB 降至 31MB）
+- 分页读取的工作表缓存（10 倍性能提升）
+- 消除 Cells clone（零拷贝优化）
 
-### Documentation
+### 文档
 
-- Module-level documentation with performance comparison
-- API documentation for CellData, XlsbReader, XlsbWriter
-- Code examples in documentation
-- README.md and README_cn.md with quick start guides
+- 带性能对比的模块级文档
+- CellData、XlsbReader、XlsbWriter 的 API 文档
+- 文档中的代码示例
+- 含快速上手指南的 README
 
-### Tests
+### 测试
 
-- 9 tests passing (features_test: 6, template_test: 3)
-- 0 compilation warnings
-- All dead_code warnings resolved with #[allow(dead_code)]
+- 9 个测试通过（features_test：6，template_test：3）
+- 0 编译告警
+- 所有 dead_code 告警通过 #[allow(dead_code)] 解决
 
-### Known Issues
+### 已知问题
 
-- Formula cells not supported yet
-- Rich text cells not supported yet
-- Charts not supported yet
+- 暂不支持公式单元格
+- 暂不支持富文本单元格
+- 暂不支持图表
 
-## Future Plans
+## 未来计划
 
-### [0.4.0] - Planned
+### [0.4.0] - 计划中
 
-- Formula cell support
-- Rich text cell support
-- Advanced cell styles (font, color, alignment, fill, border)
-- Chart support
-- Pivot table support
-- Auto-filter support
-- Conditional formatting
+- 公式单元格支持
+- 富文本单元格支持
+- 高级单元格样式（字体、颜色、对齐、填充、边框）
+- 图表支持
+- 数据透视表支持
+- 自动筛选支持
+- 条件格式
 
-## Version History Summary
+## 版本历史汇总
 
-| Version | Date | Key Features |
-|---------|------|--------------|
-| 0.1.0 | 2026-04-30 | Initial release, core read/write, template filling |
-| 0.2.0 | 2026-05-01 | Number formats (percentage, currency, date, time), styleIndex mapping |
-| 0.3.0 | 2026-05-07 | WPS/Excel 100% compatibility, BIFF12 format fixes, streaming API complete |
-| 0.4.0 | TBD | Formula, rich text, advanced styles, charts, pivot tables |
+| 版本 | 日期 | 关键特性 |
+|------|------|----------|
+| 0.1.0 | 2026-04-30 | 首次发布，核心读写，模板填充 |
+| 0.2.0 | 2026-05-01 | 数字格式（百分比、货币、日期、时间），styleIndex 映射 |
+| 0.3.0 | 2026-05-07 | WPS/Excel 100% 兼容，BIFF12 格式修正，流式 API 完成 |
+| 0.4.0 | 待定 | 公式、富文本、高级样式、图表、数据透视表 |
+
+## 相关文档
+
+- [README.md](README.md)（中文） / [README_en.md](README_en.md)（英文）
+- [MANUAL.md](MANUAL.md)（中文） / [MANUAL_en.md](MANUAL_en.md)（英文）
