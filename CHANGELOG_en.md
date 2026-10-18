@@ -114,8 +114,8 @@ cargo run --example streaming_full_test
 
 ### Documentation
 
-- Updated README.md with WPS compatibility section
-- Updated README_cn.md with verification details
+- Updated README_en.md with WPS compatibility section
+- Updated README.md with verification details
 - Added test example documentation
 
 ## [0.2.0] - 2026-05-01
@@ -270,7 +270,7 @@ CellData::time(1714560000)                  // 10:40:00
 - Module-level documentation with performance comparison
 - API documentation for CellData, XlsbReader, XlsbWriter
 - Code examples in documentation
-- README.md and README_cn.md with quick start guides
+- README_en.md and README.md with quick start guides
 
 ### Tests
 
