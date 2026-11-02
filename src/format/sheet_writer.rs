@@ -115,7 +115,7 @@ impl<'a> SheetWriter<'a> {
     pub fn write_batch(&mut self, supplier: impl CellSupplier,
                        row_count: usize, col_count: usize) -> Result<()> {
         self.buffer.ensure_capacity(row_count * col_count * 30 + 2048);
-        
+
         self.write_empty_record(RecordType::BrtBeginSheet)?;
         self.write_ws_prop()?;
         self.write_dimension(0, 0, row_count.saturating_sub(1), col_count.saturating_sub(1))?;
@@ -135,6 +135,40 @@ impl<'a> SheetWriter<'a> {
         self.write_empty_record(RecordType::BrtEndSheetData)?;
         self.write_empty_record(RecordType::BrtEndSheet)?;
         
+        self.max_row = row_count;
+        self.max_col = col_count;
+        Ok(())
+
+    }
+
+    /// 从「按所有权持有的行数据」直接写入，避免每个单元格再 clone 一次。
+    ///
+    /// 供流式写入在 `end_sheet` 时使用：`rows` 会被消费，文本串直接移入 SST。
+    pub fn write_batch_owned(&mut self, rows: Vec<Vec<CellData>>, col_count: usize) -> Result<()> {
+        let row_count = rows.len();
+        self.buffer.ensure_capacity(row_count * col_count * 30 + 2048);
+
+        self.write_empty_record(RecordType::BrtBeginSheet)?;
+        self.write_ws_prop()?;
+        self.write_dimension(0, 0, row_count.saturating_sub(1), col_count.saturating_sub(1))?;
+        self.write_view_records()?;
+        self.write_empty_record(RecordType::BrtBeginSheetData)?;
+
+        for (row, row_cells) in rows.into_iter().enumerate() {
+            self.write_row_header(row, col_count)?;
+            for (col, cell_data) in row_cells.into_iter().enumerate() {
+                if col >= col_count {
+                    break;
+                }
+                if !matches!(cell_data, CellData::Blank) {
+                    self.write_cell(row as u32, col as u32, cell_data)?;
+                }
+            }
+        }
+
+        self.write_empty_record(RecordType::BrtEndSheetData)?;
+        self.write_empty_record(RecordType::BrtEndSheet)?;
+
         self.max_row = row_count;
         self.max_col = col_count;
         Ok(())
@@ -266,7 +300,7 @@ impl<'a> SheetWriter<'a> {
     fn write_cell(&mut self, row: u32, col: u32, data: CellData) -> Result<()> {
         match data {
             CellData::Text(s) => {
-                let sst_idx = self.sst.add_string(&s);
+                let sst_idx = self.sst.add_string_owned(s);
                 self.write_cell_isst(row, col, sst_idx)?;
             }
             CellData::Number(n) => {
@@ -417,5 +451,10 @@ impl<'a> SheetWriter<'a> {
     
     pub fn serialize(&self) -> Bytes {
         self.buffer.clone().freeze()
+    }
+
+    /// 消费自身，取出序列化后的 sheet 字节（避免一次全量拷贝）。
+    pub fn into_serialized(self) -> Bytes {
+        self.buffer.into_bytes()
     }
 }

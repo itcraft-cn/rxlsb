@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 use crate::io::{BufferWriter, BufferReader};
 use crate::format::RecordType;
 use bytes::Bytes;
@@ -6,8 +7,8 @@ use crate::error::Result;
 
 #[derive(Clone)]
 pub struct SstTable {
-    strings: Vec<String>,
-    hash_map: HashMap<String, u32>,
+    strings: Vec<Arc<str>>,
+    hash_map: HashMap<Arc<str>, u32>,
     total_count: u32,
 }
 
@@ -33,14 +34,31 @@ impl SstTable {
         }
         
         let idx = self.strings.len() as u32;
-        let s_owned = s.to_string();
-        self.strings.push(s_owned.clone());
-        self.hash_map.insert(s_owned, idx);
+        let shared: Arc<str> = Arc::from(s);
+        self.strings.push(shared.clone());
+        self.hash_map.insert(shared, idx);
+        idx
+    }
+
+    /// 以「所有权」方式加入字符串，避免对已拥有的 `String` 再做一次拷贝。
+    pub fn add_string_owned(&mut self, s: String) -> u32 {
+        self.total_count += 1;
+
+        if let Some(idx) = self.hash_map.get(s.as_str()) {
+            return *idx;
+        }
+
+        let idx = self.strings.len() as u32;
+        // Arc<str> 会一次性构建共享字符串；相比 `String` + `String` 的两份分配，
+        // 这里只保留一份共享存储（Vec 与 HashMap 共享同一个 Arc）。
+        let shared: Arc<str> = Arc::from(s);
+        self.strings.push(shared.clone());
+        self.hash_map.insert(shared, idx);
         idx
     }
     
     pub fn get_string(&self, idx: u32) -> Option<&str> {
-        self.strings.get(idx as usize).map(|s| s.as_str())
+        self.strings.get(idx as usize).map(|s| s.as_ref())
     }
     
     pub fn find_string(&self, s: &str) -> Option<u32> {
@@ -49,24 +67,35 @@ impl SstTable {
     
     pub fn count(&self) -> usize { self.strings.len() }
     pub fn total_count(&self) -> u32 { self.total_count }
+
+    /// 预留容量，减少写入过程中的 rehash 与扩容。
+    pub fn reserve(&mut self, additional: usize) {
+        self.strings.reserve(additional);
+        self.hash_map.reserve(additional);
+    }
     
     pub fn serialize(&self) -> Result<Bytes> {
-        let mut writer = BufferWriter::new(1024);
+        // 预估容量：UTF-16 上限约 2 字节/字符 + 每条记录头开销。
+        let capacity = 64 + self.strings.iter().map(|s| s.len() * 2 + 8).sum::<usize>();
+        let mut writer = BufferWriter::new(capacity);
         
         writer.write_varint(RecordType::BrtBeginSst.to_u32());
         writer.write_varsize(8);
         writer.write_u32_le(self.total_count);
         writer.write_u32_le(self.strings.len() as u32);
         
+        // 复用一个 scratch 缓冲，避免每条字符串都分配一次 Vec<u16>。
+        let mut utf16: Vec<u16> = Vec::new();
         for s in &self.strings {
-            let str_len = s.encode_utf16().count();
-            let record_size = 1 + 4 + str_len * 2;
+            utf16.clear();
+            utf16.extend(s.encode_utf16());
+            let record_size = 1 + 4 + utf16.len() * 2;
             
             writer.write_varint(RecordType::BrtSstItem.to_u32());
             writer.write_varsize(record_size as u32);
             writer.write_u8(0);
-            writer.write_u32_le(str_len as u32);
-            for ch in s.encode_utf16() {
+            writer.write_u32_le(utf16.len() as u32);
+            for &ch in &utf16 {
                 writer.write_u16_le(ch);
             }
         }
@@ -79,7 +108,7 @@ impl SstTable {
     
     pub fn deserialize(data: Bytes) -> Result<Self> {
         let mut reader = BufferReader::new(data);
-        let mut strings = Vec::new();
+        let mut strings: Vec<Arc<str>> = Vec::new();
         
         while reader.has_remaining() {
             let record_type_code = reader.read_varint()?;
@@ -101,7 +130,7 @@ impl SstTable {
                     }
                     let s = String::from_utf16(&chars)
                         .map_err(|_| crate::error::XlsbError::InvalidUtf16)?;
-                    strings.push(s);
+                    strings.push(Arc::from(s));
                 }
                 
                 Some(RecordType::BrtEndSst) => {

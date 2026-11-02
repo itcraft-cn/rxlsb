@@ -75,7 +75,7 @@ impl<'a> SheetReader<'a> {
                 
                 Some(RecordType::BrtCellBool) => {
                     let _col = self.reader.read_u32_le()?;
-                    self.reader.skip(3)?;
+                    self.reader.skip(4)?;
                     let value = self.reader.read_u8()? != 0;
                     cells.push(CellData::bool(value));
                 }
@@ -175,7 +175,7 @@ impl<'a> SheetReader<'a> {
                 
                 Some(RecordType::BrtCellBool) => {
                     let _col = self.reader.read_u32_le()?;
-                    self.reader.skip(3)?;
+                    self.reader.skip(4)?;
                     let value = self.reader.read_u8()? != 0;
                     if in_range {
                         cells.push(CellData::bool(value));

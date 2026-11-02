@@ -13,6 +13,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Documentation: added "Design Positioning" section
 - Version: moved to 0.4.0-dev
+- **Default deflate level is now 1 (speed-first)**: matches mainstream spreadsheet
+  libraries; file size is on par with peers at the same level. Use
+  `XlsbWriterBuilder::compression_level(6)` or `XlsbWriter::set_compression_level(6)`
+  for smaller files
+- New writer compression-level configuration:
+  `XlsbWriterBuilder::compression_level(i32)` and
+  `XlsbWriter::set_compression_level(i32)`
+
+### Fixed
+
+- Fixed `BrtCellBool` reading: skip the flags byte (desync after flags were added)
+- Read test data column 4 changed from blank to a real value (aligned with
+  skip-blank-cell semantics)
+
+### Performance
+
+- ZIP output now uses `BufWriter` (256 KiB) to cut small file writes
+- SST serialization: single UTF-16 pass with a reused scratch buffer, removing
+  per-string `Vec<u16>` allocation
+- `write_batch` reserves SST capacity to avoid rehash/reallocation
+- SST shares `Arc<str>` between `Vec` and `HashMap` (one allocation per unique value)
+- Streaming `end_sheet` consumes owned cell rows (`write_batch_owned`), removing a
+  full per-cell clone
+- Sheet serialization moves the buffer out instead of copying
+- Measured (5000×7, same-run peer benchmark, both deflate level 1):
+  batch 10.1→8.2 ms, streaming 11.1→8.7 ms (~20% faster)
 
 ## [0.3.0] - 2026-05-07
 

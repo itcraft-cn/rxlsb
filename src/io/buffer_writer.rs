@@ -137,4 +137,9 @@ impl BufferWriter {
     pub fn freeze(self) -> Bytes {
         self.buffer.freeze()
     }
+
+    /// 消费自身，取出内部字节缓冲区（零额外拷贝）。
+    pub fn into_bytes(self) -> Bytes {
+        self.buffer.freeze()
+    }
 }

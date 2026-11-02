@@ -13,6 +13,26 @@
 
 - 文档：新增「设计定位」章节
 - 版本：进入 0.4.0-dev
+- **默认 deflate 级别改为 1（速度优先）**：与主流表格库一致，同级别下文件体积相当；
+  需要更小文件可用 `XlsbWriterBuilder::compression_level(6)` 或
+  `XlsbWriter::set_compression_level(6)`
+- 新增写入器压缩级别配置：`XlsbWriterBuilder::compression_level(i32)`、
+  `XlsbWriter::set_compression_level(i32)`
+
+### 修复
+
+- 修正 `BrtCellBool` 读取：跳过 flags 字节（修复加入 flags 后反序列化错位）
+- 读取测试数据第 4 列由空白改为真实数值（配合「跳过空白单元格」语义）
+
+### 性能
+
+- ZIP 输出改用 `BufWriter`（256 KiB），减少小块文件写
+- SST 序列化：单次 UTF-16 编码 + 复用 scratch 缓冲，消除每条字符串的 `Vec<u16>` 分配
+- `write_batch` 预留 SST 容量，避免写入中反复 rehash/扩容
+- SST 用 `Arc<str>` 在 `Vec` 与 `HashMap` 间共享，每个唯一字符串仅一次分配
+- 流式 `end_sheet` 按所有权消费行数据（`write_batch_owned`），去掉一次全量单元格克隆
+- sheet 序列化改为移动缓冲区，去掉一次全量拷贝
+- 实测（5000×7，同轮对手基准，双方 deflate 1）：批写 10.1→8.2ms，流式 11.1→8.7ms（约 +20%）
 
 ## [0.3.0] - 2026-05-07
 

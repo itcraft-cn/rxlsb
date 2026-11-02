@@ -4,7 +4,7 @@ use std::fs::File;
 use crate::error::{XlsbError, Result};
 use crate::format::{SheetParser, SstTable, CellInfo, CellValue, MergeCell};
 use crate::api::{CellData, CellSupplier};
-use crate::io::{BufferWriter, BufferReader};
+use crate::io::BufferWriter;
 use crate::container::XlsbContainerWriter;
 use bytes::Bytes;
 use chrono::{TimeZone, Utc, DateTime};

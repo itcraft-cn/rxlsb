@@ -13,7 +13,7 @@ fn setup_test_file() {
             0 => CellData::text(format!("Name_{}", row)),
             1 => CellData::number(row as f64 * 100.0),
             2 => CellData::bool(row % 2 == 0),
-            3 => CellData::blank(),
+            3 => CellData::number(row as f64 + 0.5),
             _ => CellData::blank(),
         }
     }, 20, 4).unwrap();

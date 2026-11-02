@@ -65,7 +65,7 @@ pub struct XlsbWriter {
     sst: SstTable,
     styles: StylesRegistry,
     workbook: WorkbookWriter,
-    sheets_data: Vec<Vec<u8>>,
+    sheets_data: Vec<bytes::Bytes>,
     streaming: Option<StreamingState>,
 }
 
@@ -79,7 +79,7 @@ struct StreamingState {
 impl XlsbWriter {
     /// 创建Writer构建器
     pub fn builder() -> XlsbWriterBuilder {
-        XlsbWriterBuilder { path: None }
+        XlsbWriterBuilder { path: None, compression_level: None }
     }
     
     fn new(path: &std::path::Path) -> Result<Self> {
@@ -98,6 +98,19 @@ impl XlsbWriter {
             streaming: None,
         })
     }
+
+    /// 设置 zip/deflate 压缩级别。
+    ///
+    /// `1` 为速度优先（默认），`6` 为体积优先，`0-9` 均可。需在写入内容之前调用。
+    pub fn set_compression_level(&mut self, level: i32) -> Result<()> {
+        if !(0..=9).contains(&level) {
+            return Err(XlsbError::InvalidState(format!(
+                "compression level must be in 0..=9, got {level}"
+            )));
+        }
+        self.container.set_compression_level(level);
+        Ok(())
+    }
     
     /// 批量写入sheet数据
     ///
@@ -114,11 +127,13 @@ impl XlsbWriter {
     pub fn write_batch(&mut self, sheet_name: &str,
                        supplier: impl CellSupplier,
                        row_count: usize, col_count: usize) -> Result<()> {
+        // 预估文本量，预留 SST 容量，避免写入过程中反复 rehash/扩容。
+        self.sst.reserve(row_count.saturating_mul(col_count) / 2);
         let mut sheet_writer = SheetWriter::new(&mut self.sst, &mut self.styles);
         sheet_writer.write_batch(supplier, row_count, col_count)?;
         
         self.workbook.add_sheet(sheet_name);
-        self.sheets_data.push(sheet_writer.serialize().as_ref().to_vec());
+        self.sheets_data.push(sheet_writer.into_serialized());
         Ok(())
     }
     
@@ -182,24 +197,11 @@ impl XlsbWriter {
         let streaming = self.streaming.take()
             .ok_or_else(|| XlsbError::InvalidState("Sheet not started".into()))?;
         
-        struct VecSupplier {
-            data: Vec<Vec<CellData>>,
-        }
-        impl CellSupplier for VecSupplier {
-            fn get_cell(&self, row: usize, col: usize) -> CellData {
-                self.data.get(row)
-                    .and_then(|r| r.get(col))
-                    .cloned()
-                    .unwrap_or(CellData::Blank)
-            }
-        }
-        
-        let supplier = VecSupplier { data: streaming.rows_data };
         let mut sheet_writer = SheetWriter::new(&mut self.sst, &mut self.styles);
-        sheet_writer.write_batch(supplier, streaming.max_row, streaming.col_count)?;
+        sheet_writer.write_batch_owned(streaming.rows_data, streaming.col_count)?;
         
         self.workbook.add_sheet(&streaming.sheet_name);
-        self.sheets_data.push(sheet_writer.serialize().as_ref().to_vec());
+        self.sheets_data.push(sheet_writer.into_serialized());
         
         Ok(())
     }
@@ -236,7 +238,7 @@ impl XlsbWriter {
         }
         
         for (i, sheet_data) in self.sheets_data.iter().enumerate() {
-            self.container.add_entry(&format!("xl/worksheets/sheet{}.bin", i + 1), sheet_data)?;
+            self.container.add_entry_from_bytes(&format!("xl/worksheets/sheet{}.bin", i + 1), sheet_data)?;
         }
         
         self.container.finish()?;
@@ -247,6 +249,7 @@ impl XlsbWriter {
 /// XlsbWriter构建器
 pub struct XlsbWriterBuilder {
     path: Option<PathBuf>,
+    compression_level: Option<i32>,
 }
 
 impl XlsbWriterBuilder {
@@ -255,10 +258,22 @@ impl XlsbWriterBuilder {
         self.path = Some(p.into());
         self
     }
+
+    /// 设置 zip/deflate 压缩级别（0-9）。
+    ///
+    /// 默认 level 1（速度优先）；`6` 为体积优先。
+    pub fn compression_level(mut self, level: i32) -> Self {
+        self.compression_level = Some(level);
+        self
+    }
     
     /// 构建Writer实例
     pub fn build(self) -> Result<XlsbWriter> {
         let path = self.path.ok_or(XlsbError::PathNotSet)?;
-        XlsbWriter::new(&path)
+        let mut writer = XlsbWriter::new(&path)?;
+        if let Some(level) = self.compression_level {
+            writer.set_compression_level(level)?;
+        }
+        Ok(writer)
     }
 }
