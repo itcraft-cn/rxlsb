@@ -51,6 +51,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cells and row headers use fixed-length single-`put_slice` encoding, removing
   many per-field bounds checks
 - Sheet serialization moves the buffer out instead of copying
+- Read: SST deserialization now does one bounds check and decodes directly from a
+  byte slice, removing per-code-unit reads
+- Read: `read_wide_string_u32` reuses the same batched decoding path
+- Read benchmark (8000 rows × 8 cols, min): read_rows 4.83→4.67 ms, for_each 4.37→4.20 ms
 - Measured (5000 rows × 7 cols, same-run peer benchmark):
   - default pure Rust, deflate 1: batch 3.9 ms (peer 5.5 ms), streaming 4.1 ms (peer 4.5 ms)
   - with `zlib-ng`, deflate 6: batch 9.1 ms (peer 12.9 ms), streaming 9.5 ms (peer 9.3 ms)

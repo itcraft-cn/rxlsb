@@ -274,12 +274,8 @@ impl SstTable {
                 Some(RecordType::BrtSstItem) => {
                     reader.skip(1)?;
                     let char_count = reader.read_u32_le()? as usize;
-                    let mut chars = Vec::with_capacity(char_count);
-                    for _ in 0..char_count {
-                        chars.push(reader.read_u16_le()?);
-                    }
-                    let s = String::from_utf16(&chars)
-                        .map_err(|_| crate::error::XlsbError::InvalidUtf16)?;
+                    // 一次边界检查 + 直接切片顺序解码，避免逐码元边界检查
+                    let s = reader.read_utf16_le_string(char_count)?;
                     strings.push(s);
                 }
 
