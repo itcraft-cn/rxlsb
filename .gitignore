@@ -3,3 +3,8 @@
 _rels/
 docProps/
 xl/
+
+# profiling artifacts
+flamegraph*.svg
+perf.data
+heaptrack.*

@@ -1,8 +1,36 @@
 use std::collections::HashMap;
+use std::hash::{BuildHasherDefault, Hasher};
 use crate::io::{BufferWriter, BufferReader};
 use crate::format::RecordType;
 use bytes::Bytes;
 use crate::error::Result;
+
+/// 恒等哈希器：键本身已是 FNV-1a 得到的 64 位哈希，无需再哈希。
+#[derive(Default)]
+struct IdentityHasher(u64);
+
+impl Hasher for IdentityHasher {
+    #[inline]
+    fn finish(&self) -> u64 {
+        self.0
+    }
+    #[inline]
+    fn write(&mut self, bytes: &[u8]) {
+        // 兜底：非 u64 键（不会用到，但保持正确性）。
+        let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+        for &b in bytes {
+            h ^= b as u64;
+            h = h.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+        self.0 = h;
+    }
+    #[inline]
+    fn write_u64(&mut self, v: u64) {
+        self.0 = v;
+    }
+}
+
+type IndexMap = HashMap<u64, u32, BuildHasherDefault<IdentityHasher>>;
 
 const CHUNK_FLUSH: usize = 64 * 1024;
 
@@ -42,6 +70,33 @@ fn push_varsize(buf: &mut Vec<u8>, mut value: u32) {
     }
 }
 
+/// 高效的 UTF-8 → UTF-16 追加。ASCII 走快路径，避免 `encode_utf16` 迭代器开销。
+#[inline]
+fn encode_utf16_into(s: &str, out: &mut Vec<u16>) {
+    out.reserve(s.len());
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        let b = bytes[i];
+        if b < 0x80 {
+            out.push(b as u16);
+            i += 1;
+        } else {
+            // i 始终位于字符边界。
+            let ch = s[i..].chars().next().unwrap();
+            let cp = ch as u32;
+            if cp <= 0xFFFF {
+                out.push(cp as u16);
+            } else {
+                let v = cp - 0x10000;
+                out.push(0xD800 + (v >> 10) as u16);
+                out.push(0xDC00 + (v & 0x3FF) as u16);
+            }
+            i += ch.len_utf8();
+        }
+    }
+}
+
 /// 共享字符串表（SST）。
 ///
 /// 写入路径以「移动」方式接收 `String`，每个唯一字符串只分配一次；
@@ -50,20 +105,20 @@ fn push_varsize(buf: &mut Vec<u8>, mut value: u32) {
 pub struct SstTable {
     strings: Vec<String>,
     /// FNV 哈希 -> 首个匹配索引（仅写入路径需要；读取构建时留空）。
-    index: HashMap<u64, u32>,
+    index: IndexMap,
     total_count: u32,
 }
 
 impl SstTable {
     pub fn new() -> Self {
-        Self { strings: vec![], index: HashMap::new(), total_count: 0 }
+        Self { strings: vec![], index: IndexMap::default(), total_count: 0 }
     }
 
     #[allow(dead_code)]
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             strings: Vec::with_capacity(capacity),
-            index: HashMap::with_capacity(capacity),
+            index: IndexMap::with_capacity_and_hasher(capacity, Default::default()),
             total_count: 0,
         }
     }
@@ -147,7 +202,7 @@ impl SstTable {
         let mut utf16: Vec<u16> = Vec::new();
         for s in &self.strings {
             utf16.clear();
-            utf16.extend(s.encode_utf16());
+            encode_utf16_into(s, &mut utf16);
             let record_size = 1 + 4 + utf16.len() * 2;
 
             push_varint(&mut buf, RecordType::BrtSstItem.to_u32());
@@ -222,7 +277,7 @@ impl SstTable {
 
         Ok(Self {
             strings,
-            index: HashMap::new(),
+            index: IndexMap::default(),
             total_count,
         })
     }

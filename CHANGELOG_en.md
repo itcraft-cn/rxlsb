@@ -39,14 +39,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no `Arc` overhead)
 - SST supports chunked streaming writes (flush every 64 KiB) to reduce intermediate
   buffering
+- SST uses an **ASCII fast-path UTF-8 → UTF-16 encoder**, avoiding `encode_utf16`
+  iterator overhead
+- SST dedup index uses an **identity hasher** (keys are already FNV-1a digests, so no
+  second SipHash)
 - Streaming write now encodes row records incrementally: `write_rows` appends
   encoded rows directly instead of buffering the whole `Vec<Vec<CellData>>`
 - Cells and row headers use fixed-length single-`put_slice` encoding, removing
   many per-field bounds checks
 - Sheet serialization moves the buffer out instead of copying
 - Measured (5000 rows × 7 cols, same-run peer benchmark):
-  - default pure Rust, deflate 1: batch 4.9 ms (peer 5.3 ms), streaming 5.4 ms (peer 6.1 ms)
-  - with `zlib-ng`, deflate 6: batch 13.4 ms (peer 13.7 ms), streaming 14.3 ms (peer 14.1 ms)
+  - default pure Rust, deflate 1: batch 3.8 ms (peer 5.4 ms), streaming 4.2 ms (peer 4.4 ms)
+  - with `zlib-ng`, deflate 6: batch 9.1 ms (peer 12.9 ms), streaming 9.5 ms (peer 9.3 ms)
   - output slightly smaller than peer; lower total allocation (5.9 MiB vs 6.5 MiB)
 
 
