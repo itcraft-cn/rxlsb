@@ -154,6 +154,11 @@ impl BufferWriter {
     pub fn clear(&mut self) {
         self.buffer.clear();
     }
+
+    /// 在指定偏移回填一个 u32（小端），用于事后修补维度等字段。
+    pub fn set_u32_le_at(&mut self, offset: usize, value: u32) {
+        self.buffer[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+    }
     
     pub fn freeze(self) -> Bytes {
         self.buffer.freeze()

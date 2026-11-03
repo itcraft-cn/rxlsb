@@ -167,13 +167,17 @@ impl<'a> SheetWriter<'a> {
     }
 
     /// 写入 sheet 前导记录（BeginSheet、属性、维度、视图、BeginSheetData）。
-    pub(crate) fn write_prologue(&mut self, row_count: usize, col_count: usize) -> Result<()> {
+    /// 写入 sheet 前导记录，返回「维度 last_row 字段」的字节偏移，便于事后回填。
+    pub(crate) fn write_prologue(&mut self, row_count: usize, col_count: usize) -> Result<usize> {
         self.write_empty_record(RecordType::BrtBeginSheet)?;
         self.write_ws_prop()?;
+        let dim_offset = self.buffer.len();
         self.write_dimension(0, 0, row_count.saturating_sub(1), col_count.saturating_sub(1))?;
+        // BrtWsDim: varint(type=148, 2 字节) + varsize(16, 1 字节) + first_row(u32, 4 字节)
+        let last_row_offset = dim_offset + 2 + 1 + 4;
         self.write_view_records()?;
         self.write_empty_record(RecordType::BrtBeginSheetData)?;
-        Ok(())
+        Ok(last_row_offset)
     }
 
     /// 写入 sheet 收尾记录（EndSheetData、EndSheet）。

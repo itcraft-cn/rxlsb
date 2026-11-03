@@ -73,8 +73,10 @@ struct StreamingState {
     sheet_name: String,
     col_count: usize,
     max_row: usize,
-    /// 已按 BIFF12 编码好的行记录（BrtRowHdr + 单元格），增量追加。
+    /// 已按 BIFF12 编码好的整张 sheet（前导 + 行记录），增量追加。
     rows: crate::io::BufferWriter,
+    /// 维度记录中 last_row 字段的字节偏移，结束时回填。
+    dim_last_row_off: usize,
 }
 
 impl XlsbWriter {
@@ -149,12 +151,19 @@ impl XlsbWriter {
         if self.streaming.is_some() {
             return Err(XlsbError::InvalidState("Previous sheet not ended, call end_sheet() first".into()));
         }
-        
-        self.streaming = Some(StreamingState {
+
+        // 先写入前导记录（维度暂以 0 行占位），记录 last_row 偏移以便结束时回填。
+        let Self { sst, styles, streaming, .. } = self;
+        let mut sheet_writer =
+            SheetWriter::with_buffer(crate::io::BufferWriter::new(64 * 1024), sst, styles);
+        let dim_last_row_off = sheet_writer.write_prologue(0, col_count)?;
+
+        *streaming = Some(StreamingState {
             sheet_name: sheet_name.to_string(),
             col_count,
             max_row: 0,
-            rows: crate::io::BufferWriter::new(64 * 1024),
+            rows: sheet_writer.into_buffer(),
+            dim_last_row_off,
         });
         Ok(())
     }
@@ -203,17 +212,18 @@ impl XlsbWriter {
     ///
     /// 完成当前sheet的流式写入，生成sheet数据
     pub fn end_sheet(&mut self) -> Result<()> {
-        let streaming = self.streaming.take()
+        let mut streaming = self.streaming.take()
             .ok_or_else(|| XlsbError::InvalidState("Sheet not started".into()))?;
 
-        let rows = streaming.rows.into_bytes();
+        // 回填维度 last_row（无行时保持 0），随后追加收尾记录，无需整块拷贝。
+        let last_row = streaming.max_row.saturating_sub(1) as u32;
+        streaming.rows.set_u32_le_at(streaming.dim_last_row_off, last_row);
+
         let mut sheet_writer = SheetWriter::with_buffer(
-            crate::io::BufferWriter::new(rows.len() + 1024),
+            streaming.rows,
             &mut self.sst,
             &mut self.styles,
         );
-        sheet_writer.write_prologue(streaming.max_row, streaming.col_count)?;
-        sheet_writer.append_raw(&rows);
         sheet_writer.write_epilogue();
 
         self.workbook.add_sheet(&streaming.sheet_name);

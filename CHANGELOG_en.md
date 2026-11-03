@@ -45,13 +45,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   second SipHash)
 - Streaming write now encodes row records incrementally: `write_rows` appends
   encoded rows directly instead of buffering the whole `Vec<Vec<CellData>>`
+- Streaming `start_sheet` writes the prologue immediately and records the dimension
+  offset; `end_sheet` only patches `last_row` and appends the epilogue, removing the
+  final whole-buffer copy
 - Cells and row headers use fixed-length single-`put_slice` encoding, removing
   many per-field bounds checks
 - Sheet serialization moves the buffer out instead of copying
 - Measured (5000 rows × 7 cols, same-run peer benchmark):
-  - default pure Rust, deflate 1: batch 3.8 ms (peer 5.4 ms), streaming 4.2 ms (peer 4.4 ms)
+  - default pure Rust, deflate 1: batch 3.9 ms (peer 5.5 ms), streaming 4.1 ms (peer 4.5 ms)
   - with `zlib-ng`, deflate 6: batch 9.1 ms (peer 12.9 ms), streaming 9.5 ms (peer 9.3 ms)
-  - output slightly smaller than peer; lower total allocation (5.9 MiB vs 6.5 MiB)
+  - output slightly smaller than peer; lower total allocation (6.2/6.6 MiB vs 6.8/7.3 MiB)
 
 
 ## [0.3.0] - 2026-05-07
