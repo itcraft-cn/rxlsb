@@ -29,35 +29,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Performance
 
-- ZIP output now uses `BufWriter` (256 KiB) to cut small file writes
+- ZIP output uses the `zip` crate + `BufWriter` (256 KiB); **no custom ZIP writer**
+- New optional `zlib-ng` feature (C backend): pure Rust (miniz_oxide) by default;
+  `cargo build --features zlib-ng` switches to the faster C deflate
 - SST serialization: single UTF-16 pass with a reused scratch buffer, removing
   per-string `Vec<u16>` allocation
 - `write_batch` reserves SST capacity to avoid rehash/reallocation
 - SST now uses move-storage + FNV-1a hash index (one allocation per unique value,
   no `Arc` overhead)
+- SST supports chunked streaming writes (flush every 64 KiB) to reduce intermediate
+  buffering
 - Streaming write now encodes row records incrementally: `write_rows` appends
   encoded rows directly instead of buffering the whole `Vec<Vec<CellData>>`
 - Cells and row headers use fixed-length single-`put_slice` encoding, removing
   many per-field bounds checks
-- Custom minimal ZIP writer for the write path (replaces the `zip` crate there):
-  - uses `zlib-rs` as a **private deflate backend** (independent of `flate2`,
-    so it is not affected by feature unification)
-  - unified data descriptor + streaming compression: compressed bytes go straight
-    to the file, removing per-entry whole-buffer compression
-  - reading still uses the `zip` crate
-- SST supports chunked streaming compression (flushes every 64 KiB), removing the
-  1 MiB intermediate buffer
 - Sheet serialization moves the buffer out instead of copying
 - Measured (5000 rows × 7 cols, same-run peer benchmark):
-  - deflate 1: batch 5.2 ms (peer 5.5 ms), streaming 5.6 ms (peer 6.3 ms)
-  - deflate 6: batch 14.5 ms (peer 14.3 ms), streaming 14.8 ms (peer 14.9 ms)
-  - output slightly smaller than peer (158.7 KB vs 159.5 KB at level 6)
-  - lower total allocation than peer (5.9 MiB vs 6.8 MiB)
-
-### Known limitation
-
-- The custom ZIP writer does not implement zip64 yet: a single entry or archive
-  offset above 4 GiB returns an error. (Reading is unaffected.)
+  - default pure Rust, deflate 1: batch 4.9 ms (peer 5.3 ms), streaming 5.4 ms (peer 6.1 ms)
+  - with `zlib-ng`, deflate 6: batch 13.4 ms (peer 13.7 ms), streaming 14.3 ms (peer 14.1 ms)
+  - output slightly smaller than peer; lower total allocation (5.9 MiB vs 6.5 MiB)
 
 
 ## [0.3.0] - 2026-05-07

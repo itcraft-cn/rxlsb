@@ -26,29 +26,21 @@
 
 ### 性能
 
-- ZIP 输出改用 `BufWriter`（256 KiB），减少小块文件写
+- ZIP 输出使用 `zip` crate + `BufWriter`（256 KiB），减少小块文件写；**不做自研 ZIP**
+- 新增可选 `zlib-ng` feature（C 后端）：默认纯 Rust（miniz_oxide）；
+  `cargo build --features zlib-ng` 切换到更快的 C 版 deflate
 - SST 序列化：单次 UTF-16 编码 + 复用 scratch 缓冲，消除每条字符串的 `Vec<u16>` 分配
 - `write_batch` 预留 SST 容量，避免写入中反复 rehash/扩容
 - SST 改为「移动存储 + 哈希索引（FNV-1a）」，每个唯一字符串仅一次分配，去掉 `Arc` 开销
+- SST 支持分块流式压缩写入（累积 64 KiB 再写入），减少中间缓冲
 - 流式写入改为**增量编码行记录**：`write_rows` 直接写入行记录缓冲，不再缓存整张
-  `Vec<Vec<CellData>>`，`end_sheet` 仅拼接前导/收尾
+  `Vec<Vec<CellData>>`
 - 单元格与行头改为**固定长度一次性编码 + 单次 `put_slice`**，去掉大量逐字段写入的边界检查
-- 自研最小 ZIP 写入器（替代写入侧的 `zip` crate）：
-  - 使用 `zlib-rs` 作为**私有 deflate 后端**（独立于 `flate2`，不参与 feature 统一）
-  - 统一 data descriptor + 流式压缩，压缩直接写入文件，去掉每条目整块压缩缓冲
-  - 读取仍使用 `zip` crate
-- SST 支持**分块流式压缩写入**（累积 64 KiB 再压缩），去掉 1MiB 中间缓冲
 - sheet 序列化改为移动缓冲区，去掉一次全量拷贝
 - 实测（5000 行 × 7 列，同轮对手基准）：
-  - deflate 1：批写 5.2ms（对手 5.5ms）、流式 5.6ms（对手 6.3ms）
-  - deflate 6：批写 14.5ms（对手 14.3ms）、流式 14.8ms（对手 14.9ms）
-  - 产物体积略小于对手（158.7KB vs 159.5KB，level 6）
-  - 峰值堆 4.2MiB、总分配 5.9MiB，均低于对手（3.3/6.8MiB）中的分配
-
-### 已知限制
-
-- 自研 ZIP 写入器暂不支持 zip64：单个条目或归档偏移超过 4 GiB 时返回错误。
-  （读取不受影响）
+  - 默认纯 Rust、deflate 1：批写 4.9ms（对手 5.3ms）、流式 5.4ms（对手 6.1ms）
+  - 开启 `zlib-ng`、deflate 6：批写 13.4ms（对手 13.7ms）、流式 14.3ms（对手 14.1ms）
+  - 产物体积略小于对手；总分配低于对手（5.9MiB vs 6.5MiB）
 
 
 ## [0.3.0] - 2026-05-07
