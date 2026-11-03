@@ -35,7 +35,7 @@ fn main() {
     // 1. 按坐标批量填充
     let out1 = PathBuf::from("/tmp/template_batch.xlsb");
     let mut f1 = TemplateFiller::builder().template(TEMPLATE).output(&out1).build().unwrap();
-    f1.fill_batch(0, 12, 0, supplier, 8, 4).unwrap();
+    f1.fill_batch(0, 12, 8, supplier, 8, 4).unwrap();
     f1.save().unwrap();
     println!("Created: {}", out1.display());
 
@@ -53,7 +53,7 @@ fn main() {
     // 3. 流式模板写（分 3 批）
     let out3 = PathBuf::from("/tmp/template_stream.xlsb");
     let mut f3 = TemplateFiller::builder().template(TEMPLATE).output(&out3).build().unwrap();
-    f3.start_fill(0, 12, 0, 4).unwrap();
+    f3.start_fill(0, 12, 8, 4).unwrap();
     for batch in 0..3 {
         let start = batch * 3;
         let rows: Vec<Vec<CellData>> = (start..start + 3).map(row_cells).collect();
