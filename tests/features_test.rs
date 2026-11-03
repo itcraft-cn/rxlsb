@@ -1,24 +1,28 @@
 use rxlsb::{XlsbWriter, XlsbReader, CellData};
+use std::sync::Once;
 
 const TEST_FILE: &str = "/tmp/rxlsb_features_test.xlsb";
+static SETUP: Once = Once::new();
 
 fn setup_test_file() {
-    let mut writer = XlsbWriter::builder()
-        .path(TEST_FILE)
-        .build()
-        .unwrap();
-    
-    writer.write_batch("普通写Sheet", |row, col| {
-        match col {
-            0 => CellData::text(format!("Name_{}", row)),
-            1 => CellData::number(row as f64 * 100.0),
-            2 => CellData::bool(row % 2 == 0),
-            3 => CellData::number(row as f64 + 0.5),
-            _ => CellData::blank(),
-        }
-    }, 20, 4).unwrap();
-    
-    writer.close().unwrap();
+    SETUP.call_once(|| {
+        let mut writer = XlsbWriter::builder()
+            .path(TEST_FILE)
+            .build()
+            .unwrap();
+
+        writer.write_batch("普通写Sheet", |row, col| {
+            match col {
+                0 => CellData::text(format!("Name_{}", row)),
+                1 => CellData::number(row as f64 * 100.0),
+                2 => CellData::bool(row % 2 == 0),
+                3 => CellData::number(row as f64 + 0.5),
+                _ => CellData::blank(),
+            }
+        }, 20, 4).unwrap();
+
+        writer.close().unwrap();
+    });
 }
 
 #[test]

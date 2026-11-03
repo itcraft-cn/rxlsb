@@ -45,6 +45,27 @@ impl BufferWriter {
     pub fn write_bytes(&mut self, bytes: &[u8]) {
         self.buffer.put_slice(bytes);
     }
+
+    /// 一次性写入一段 UTF-16LE（小端平台直接整段 memcpy）。
+    #[inline]
+    pub fn write_u16_le_slice(&mut self, values: &[u16]) {
+        #[cfg(target_endian = "little")]
+        {
+            // 小端平台上 [u16] 的内存布局即 UTF-16LE 字节序列。
+            // SAFETY: u16 与 u8 对齐要求不同，这里按字节切片读取同一块内存，
+            // 长度按元素数 * 2 计算，生命周期受 `values` 约束。
+            let bytes = unsafe {
+                std::slice::from_raw_parts(values.as_ptr() as *const u8, values.len() * 2)
+            };
+            self.buffer.put_slice(bytes);
+        }
+        #[cfg(not(target_endian = "little"))]
+        {
+            for &v in values {
+                self.buffer.put_u16_le(v);
+            }
+        }
+    }
     
     pub fn write_varint(&mut self, value: u32) -> usize {
         if value >= 128 {

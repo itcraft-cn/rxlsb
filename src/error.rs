@@ -7,6 +7,9 @@ pub enum XlsbError {
     
     #[error("ZIP错误: {0}")]
     Zip(#[from] zip::result::ZipError),
+
+    #[error("压缩错误: {0}")]
+    Compression(String),
     
     #[error("缓冲区溢出: 位置 {position}, 长度 {length}")]
     BufferOverflow { position: usize, length: usize },

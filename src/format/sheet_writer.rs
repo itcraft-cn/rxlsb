@@ -9,6 +9,13 @@ use once_cell::sync::Lazy;
 const MIN_RK_INTEGER: i32 = -536870912;
 const MAX_RK_INTEGER: i32 = 536870911;
 
+#[inline]
+fn put_u24(dst: &mut [u8], v: u32) {
+    dst[0] = v as u8;
+    dst[1] = (v >> 8) as u8;
+    dst[2] = (v >> 16) as u8;
+}
+
 static EXCEL_EPOCH: Lazy<DateTime<Utc>> = Lazy::new(|| {
     Utc.with_ymd_and_hms(1899, 12, 30, 0, 0, 0)
         .single()
@@ -114,14 +121,9 @@ impl<'a> SheetWriter<'a> {
     
     pub fn write_batch(&mut self, supplier: impl CellSupplier,
                        row_count: usize, col_count: usize) -> Result<()> {
-        self.buffer.ensure_capacity(row_count * col_count * 30 + 2048);
+        self.buffer.ensure_capacity(row_count * col_count * 22 + 2048);
+        self.write_prologue(row_count, col_count)?;
 
-        self.write_empty_record(RecordType::BrtBeginSheet)?;
-        self.write_ws_prop()?;
-        self.write_dimension(0, 0, row_count.saturating_sub(1), col_count.saturating_sub(1))?;
-        self.write_view_records()?;
-        self.write_empty_record(RecordType::BrtBeginSheetData)?;
-        
         for row in 0..row_count {
             self.write_row_header(row, col_count)?;
             for col in 0..col_count {
@@ -131,14 +133,11 @@ impl<'a> SheetWriter<'a> {
                 }
             }
         }
-        
-        self.write_empty_record(RecordType::BrtEndSheetData)?;
-        self.write_empty_record(RecordType::BrtEndSheet)?;
-        
+
+        self.write_epilogue();
         self.max_row = row_count;
         self.max_col = col_count;
         Ok(())
-
     }
 
     /// 从「按所有权持有的行数据」直接写入，避免每个单元格再 clone 一次。
@@ -146,13 +145,8 @@ impl<'a> SheetWriter<'a> {
     /// 供流式写入在 `end_sheet` 时使用：`rows` 会被消费，文本串直接移入 SST。
     pub fn write_batch_owned(&mut self, rows: Vec<Vec<CellData>>, col_count: usize) -> Result<()> {
         let row_count = rows.len();
-        self.buffer.ensure_capacity(row_count * col_count * 30 + 2048);
-
-        self.write_empty_record(RecordType::BrtBeginSheet)?;
-        self.write_ws_prop()?;
-        self.write_dimension(0, 0, row_count.saturating_sub(1), col_count.saturating_sub(1))?;
-        self.write_view_records()?;
-        self.write_empty_record(RecordType::BrtBeginSheetData)?;
+        self.buffer.ensure_capacity(row_count * col_count * 22 + 2048);
+        self.write_prologue(row_count, col_count)?;
 
         for (row, row_cells) in rows.into_iter().enumerate() {
             self.write_row_header(row, col_count)?;
@@ -166,12 +160,55 @@ impl<'a> SheetWriter<'a> {
             }
         }
 
-        self.write_empty_record(RecordType::BrtEndSheetData)?;
-        self.write_empty_record(RecordType::BrtEndSheet)?;
-
+        self.write_epilogue();
         self.max_row = row_count;
         self.max_col = col_count;
         Ok(())
+    }
+
+    /// 写入 sheet 前导记录（BeginSheet、属性、维度、视图、BeginSheetData）。
+    pub(crate) fn write_prologue(&mut self, row_count: usize, col_count: usize) -> Result<()> {
+        self.write_empty_record(RecordType::BrtBeginSheet)?;
+        self.write_ws_prop()?;
+        self.write_dimension(0, 0, row_count.saturating_sub(1), col_count.saturating_sub(1))?;
+        self.write_view_records()?;
+        self.write_empty_record(RecordType::BrtBeginSheetData)?;
+        Ok(())
+    }
+
+    /// 写入 sheet 收尾记录（EndSheetData、EndSheet）。
+    pub(crate) fn write_epilogue(&mut self) {
+        let _ = self.write_empty_record(RecordType::BrtEndSheetData);
+        let _ = self.write_empty_record(RecordType::BrtEndSheet);
+    }
+
+    /// 以外部缓冲区构造（用于流式增量写入）。
+    pub(crate) fn with_buffer(
+        buffer: BufferWriter,
+        sst: &'a mut SstTable,
+        styles: &'a mut StylesRegistry,
+    ) -> Self {
+        let default_date_style_id = styles.get_style_id_for_format("m/d/yy h:mm");
+        Self {
+            buffer,
+            sst,
+            styles,
+            max_row: 0,
+            max_col: 0,
+            streaming_mode: false,
+            streaming_col_count: 0,
+            default_date_style_id,
+        }
+    }
+
+    /// 取出内部缓冲区。
+    pub(crate) fn into_buffer(self) -> BufferWriter {
+        self.buffer
+    }
+
+    /// 追加原始字节（用于把预写的行记录拼接到前导/收尾之间）。
+    pub(crate) fn append_raw(&mut self, bytes: &[u8]) {
+        self.buffer.write_bytes(bytes);
     }
     
     fn write_ws_prop(&mut self) -> Result<()> {
@@ -270,15 +307,31 @@ impl<'a> SheetWriter<'a> {
         Ok(())
     }
     
-    fn write_row_header(&mut self, row: usize, col_count: usize) -> Result<()> {
+    pub(crate) fn write_row_header(&mut self, row: usize, col_count: usize) -> Result<()> {
         let num_spans = if col_count > 0 {
             (col_count - 1) / 1024 + 1
         } else {
             0
         };
-        
+
+        // 常见路径：单 span（列数 <= 1024），一次性写入固定 27 字节。
+        if num_spans == 1 {
+            let mut b = [0u8; 27];
+            b[0] = RecordType::BrtRowHdr as u8;
+            b[1] = 25; // record size
+            b[2..6].copy_from_slice(&(row as u32).to_le_bytes());
+            // b[6..10] ixfe = 0
+            b[10..12].copy_from_slice(&270u16.to_le_bytes());
+            // b[12..15] flags = 0
+            b[15..19].copy_from_slice(&1u32.to_le_bytes()); // ccolspan = 1
+            // span: colMic = 0, colLast = col_count-1
+            b[23..27].copy_from_slice(&((col_count as u32).saturating_sub(1)).to_le_bytes());
+            self.buffer.write_bytes(&b);
+            return Ok(());
+        }
+
         let record_size = 4 + 4 + 2 + 3 + 4 + (num_spans * 8);
-        
+
         self.buffer.write_varint(RecordType::BrtRowHdr.to_u32());
         self.buffer.write_varsize(record_size as u32);
         self.buffer.write_u32_le(row as u32);
@@ -286,18 +339,18 @@ impl<'a> SheetWriter<'a> {
         self.buffer.write_u16_le(270);
         self.buffer.write_bytes(&[0x00, 0x00, 0x00]);
         self.buffer.write_u32_le(num_spans as u32);
-        
+
         for seg in 0..num_spans {
             let seg_start_col = seg * 1024;
             let seg_end_col = std::cmp::min((seg + 1) * 1024 - 1, col_count - 1);
             self.buffer.write_u32_le(seg_start_col as u32);
             self.buffer.write_u32_le(seg_end_col as u32);
         }
-        
+
         Ok(())
     }
     
-    fn write_cell(&mut self, row: u32, col: u32, data: CellData) -> Result<()> {
+    pub(crate) fn write_cell(&mut self, row: u32, col: u32, data: CellData) -> Result<()> {
         match data {
             CellData::Text(s) => {
                 let sst_idx = self.sst.add_string_owned(s);
@@ -341,22 +394,22 @@ impl<'a> SheetWriter<'a> {
     }
     
     fn write_cell_real(&mut self, _row: u32, col: u32, value: f64) -> Result<()> {
-        self.buffer.write_varint(RecordType::BrtCellReal.to_u32());
-        self.buffer.write_varsize(16);
-        self.buffer.write_u32_le(col);
-        self.buffer.write_u24_le(0);
-        self.buffer.write_u8(0x00);
-        self.buffer.write_f64_le(value);
-        Ok(())
+        self.write_cell_real_inner(col, value, 0)
     }
-    
+
     fn write_cell_real_with_style(&mut self, _row: u32, col: u32, value: f64, style_idx: u32) -> Result<()> {
-        self.buffer.write_varint(RecordType::BrtCellReal.to_u32());
-        self.buffer.write_varsize(16);
-        self.buffer.write_u32_le(col);
-        self.buffer.write_u24_le(style_idx);
-        self.buffer.write_u8(0x00);
-        self.buffer.write_f64_le(value);
+        self.write_cell_real_inner(col, value, style_idx)
+    }
+
+    #[inline]
+    fn write_cell_real_inner(&mut self, col: u32, value: f64, style_idx: u32) -> Result<()> {
+        let mut b = [0u8; 18];
+        b[0] = RecordType::BrtCellReal as u8;
+        b[1] = 16;
+        b[2..6].copy_from_slice(&col.to_le_bytes());
+        put_u24(&mut b[6..9], style_idx);
+        b[10..18].copy_from_slice(&value.to_le_bytes());
+        self.buffer.write_bytes(&b);
         Ok(())
     }
     
@@ -369,28 +422,23 @@ impl<'a> SheetWriter<'a> {
     }
     
     fn write_cell_rk(&mut self, _row: u32, col: u32, value: i32) -> Result<()> {
-        self.buffer.write_varint(RecordType::BrtCellRk.to_u32());
-        self.buffer.write_varsize(12);
-        self.buffer.write_u32_le(col);
-        self.buffer.write_u24_le(0);
-        self.buffer.write_u8(0x00);
-        
-        let bits = (value as f64).to_bits();
-        let rk = (bits >> 32) as u32;
-        self.buffer.write_u32_le(rk);
-        Ok(())
+        self.write_cell_rk_inner(col, value, 0)
     }
-    
+
     fn write_cell_rk_with_style(&mut self, _row: u32, col: u32, value: i32, style_idx: u32) -> Result<()> {
-        self.buffer.write_varint(RecordType::BrtCellRk.to_u32());
-        self.buffer.write_varsize(12);
-        self.buffer.write_u32_le(col);
-        self.buffer.write_u24_le(style_idx);
-        self.buffer.write_u8(0x00);
-        
-        let bits = (value as f64).to_bits();
-        let rk = (bits >> 32) as u32;
-        self.buffer.write_u32_le(rk);
+        self.write_cell_rk_inner(col, value, style_idx)
+    }
+
+    #[inline]
+    fn write_cell_rk_inner(&mut self, col: u32, value: i32, style_idx: u32) -> Result<()> {
+        let mut b = [0u8; 14];
+        b[0] = RecordType::BrtCellRk as u8;
+        b[1] = 12;
+        b[2..6].copy_from_slice(&col.to_le_bytes());
+        put_u24(&mut b[6..9], style_idx);
+        let rk = ((value as f64).to_bits() >> 32) as u32;
+        b[10..14].copy_from_slice(&rk.to_le_bytes());
+        self.buffer.write_bytes(&b);
         Ok(())
     }
     
@@ -406,31 +454,31 @@ impl<'a> SheetWriter<'a> {
     }
     
     fn write_cell_isst(&mut self, _row: u32, col: u32, sst_idx: u32) -> Result<()> {
-        self.buffer.write_varint(RecordType::BrtCellIsst.to_u32());
-        self.buffer.write_varsize(12);
-        self.buffer.write_u32_le(col);
-        self.buffer.write_u24_le(0);
-        self.buffer.write_u8(0x00);
-        self.buffer.write_u32_le(sst_idx);
+        let mut b = [0u8; 14];
+        b[0] = RecordType::BrtCellIsst as u8;
+        b[1] = 12;
+        b[2..6].copy_from_slice(&col.to_le_bytes());
+        b[10..14].copy_from_slice(&sst_idx.to_le_bytes());
+        self.buffer.write_bytes(&b);
         Ok(())
     }
     
     fn write_cell_bool(&mut self, _row: u32, col: u32, value: bool) -> Result<()> {
-        self.buffer.write_varint(RecordType::BrtCellBool.to_u32());
-        self.buffer.write_varsize(9);
-        self.buffer.write_u32_le(col);
-        self.buffer.write_u24_le(0);
-        self.buffer.write_u8(0x00);
-        self.buffer.write_u8(value as u8);
+        let mut b = [0u8; 11];
+        b[0] = RecordType::BrtCellBool as u8;
+        b[1] = 9;
+        b[2..6].copy_from_slice(&col.to_le_bytes());
+        b[10] = value as u8;
+        self.buffer.write_bytes(&b);
         Ok(())
     }
     
     fn write_cell_blank(&mut self, _row: u32, col: u32) -> Result<()> {
-        self.buffer.write_varint(RecordType::BrtCellBlank.to_u32());
-        self.buffer.write_varsize(8);
-        self.buffer.write_u32_le(col);
-        self.buffer.write_u24_le(0);
-        self.buffer.write_u8(0x00);
+        let mut b = [0u8; 10];
+        b[0] = RecordType::BrtCellBlank as u8;
+        b[1] = 8;
+        b[2..6].copy_from_slice(&col.to_le_bytes());
+        self.buffer.write_bytes(&b);
         Ok(())
     }
     

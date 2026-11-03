@@ -73,7 +73,8 @@ struct StreamingState {
     sheet_name: String,
     col_count: usize,
     max_row: usize,
-    rows_data: Vec<Vec<CellData>>,
+    /// 已按 BIFF12 编码好的行记录（BrtRowHdr + 单元格），增量追加。
+    rows: crate::io::BufferWriter,
 }
 
 impl XlsbWriter {
@@ -128,7 +129,7 @@ impl XlsbWriter {
                        supplier: impl CellSupplier,
                        row_count: usize, col_count: usize) -> Result<()> {
         // 预估文本量，预留 SST 容量，避免写入过程中反复 rehash/扩容。
-        self.sst.reserve(row_count.saturating_mul(col_count) / 2);
+        self.sst.reserve(row_count.saturating_mul(col_count) / 3);
         let mut sheet_writer = SheetWriter::new(&mut self.sst, &mut self.styles);
         sheet_writer.write_batch(supplier, row_count, col_count)?;
         
@@ -153,11 +154,11 @@ impl XlsbWriter {
             sheet_name: sheet_name.to_string(),
             col_count,
             max_row: 0,
-            rows_data: Vec::new(),
+            rows: crate::io::BufferWriter::new(64 * 1024),
         });
         Ok(())
     }
-    
+
     /// 流式写入一批行数据
     ///
     /// 分批写入数据，配合start_sheet和end_sheet使用
@@ -170,39 +171,54 @@ impl XlsbWriter {
     /// ## 性能
     /// 写入速度约190K行/秒
     pub fn write_rows(&mut self, supplier: impl CellSupplier, start_row: usize, row_count: usize) -> Result<()> {
-        let streaming = self.streaming.as_mut()
+        let Self { sst, styles, streaming, .. } = self;
+        let st = streaming.as_mut()
             .ok_or_else(|| XlsbError::InvalidState("Sheet not started, call start_sheet() first".into()))?;
-        
-        let end_row = start_row + row_count;
-        if end_row > streaming.rows_data.len() {
-            streaming.rows_data.resize(end_row, vec![CellData::Blank; streaming.col_count]);
-        }
-        
+
+        let col_count = st.col_count;
+        st.rows.ensure_capacity(row_count * col_count * 22 + 2048);
+        let mut sheet_writer = SheetWriter::with_buffer(
+            std::mem::replace(&mut st.rows, crate::io::BufferWriter::new(0)),
+            sst,
+            styles,
+        );
+
         for row_idx in 0..row_count {
             let abs_row = start_row + row_idx;
-            for col in 0..streaming.col_count {
+            sheet_writer.write_row_header(abs_row, col_count)?;
+            for col in 0..col_count {
                 let cell = supplier.get_cell(row_idx, col);
-                streaming.rows_data[abs_row][col] = cell;
+                if !matches!(cell, CellData::Blank) {
+                    sheet_writer.write_cell(abs_row as u32, col as u32, cell)?;
+                }
             }
         }
-        
-        streaming.max_row = streaming.max_row.max(end_row);
+
+        st.rows = sheet_writer.into_buffer();
+        st.max_row = st.max_row.max(start_row + row_count);
         Ok(())
     }
-    
+
     /// 结束流式写入sheet
     ///
     /// 完成当前sheet的流式写入，生成sheet数据
     pub fn end_sheet(&mut self) -> Result<()> {
         let streaming = self.streaming.take()
             .ok_or_else(|| XlsbError::InvalidState("Sheet not started".into()))?;
-        
-        let mut sheet_writer = SheetWriter::new(&mut self.sst, &mut self.styles);
-        sheet_writer.write_batch_owned(streaming.rows_data, streaming.col_count)?;
-        
+
+        let rows = streaming.rows.into_bytes();
+        let mut sheet_writer = SheetWriter::with_buffer(
+            crate::io::BufferWriter::new(rows.len() + 1024),
+            &mut self.sst,
+            &mut self.styles,
+        );
+        sheet_writer.write_prologue(streaming.max_row, streaming.col_count)?;
+        sheet_writer.append_raw(&rows);
+        sheet_writer.write_epilogue();
+
         self.workbook.add_sheet(&streaming.sheet_name);
         self.sheets_data.push(sheet_writer.into_serialized());
-        
+
         Ok(())
     }
     
@@ -233,8 +249,7 @@ impl XlsbWriter {
         self.container.add_entry_from_bytes("xl/styles.bin", &styles_data)?;
         
         if has_sst {
-            let sst_data = self.sst.serialize()?;
-            self.container.add_entry_from_bytes("xl/sharedStrings.bin", &sst_data)?;
+            self.write_sst_streamed()?;
         }
         
         for (i, sheet_data) in self.sheets_data.iter().enumerate() {
@@ -243,6 +258,14 @@ impl XlsbWriter {
         
         self.container.finish()?;
         Ok(())
+    }
+
+    /// 以流式压缩方式写入 sharedStrings.bin，避免构建整块中间缓冲。
+    fn write_sst_streamed(&mut self) -> Result<()> {
+        let Self { container, sst, .. } = self;
+        container.begin_entry("xl/sharedStrings.bin")?;
+        sst.serialize_chunks(&mut |chunk| container.write_entry_chunk(chunk))?;
+        container.end_entry()
     }
 }
 

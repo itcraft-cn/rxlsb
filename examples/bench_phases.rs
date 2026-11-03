@@ -98,8 +98,15 @@ fn run(level: i32, h: &[String], data: &[Vec<V>], label: &str) {
 fn main() {
     let h = headers();
     let data = build();
+    // 允许通过参数指定要测的压缩级别，例如 `-- 0 1 6`
+    let levels: Vec<i32> = std::env::args()
+        .skip(1)
+        .filter_map(|s| s.parse::<i32>().ok())
+        .collect();
+    let levels = if levels.is_empty() { vec![1, 6] } else { levels };
     // warmup
     run(1, &h, &data, "warmup");
-    run(1, &h, &data, "measured");
-    run(6, &h, &data, "measured");
+    for lvl in levels {
+        run(lvl, &h, &data, "measured");
+    }
 }
