@@ -90,6 +90,25 @@ let cell = CellData::time(1714560000);             // 10:40:00
 let cell = CellData::number_with_format(123.45, "#,##0.00"); // 自定义
 ```
 
+### 4.4 行列上限与压缩级别
+
+```rust
+use rxlsb::{set_overflow, OverflowBehavior, XlsbWriter};
+
+// 列超限截断、行超限报错（全局配置，操作开始时快照）
+set_overflow(OverflowBehavior::Cut, OverflowBehavior::Error);
+
+let mut writer = XlsbWriter::builder()
+    .path("output.xlsb")
+    .compression_level(6)   // 0=store，1-9=deflate；默认 1
+    .build()?;
+```
+
+- 上限常量：`MAX_COLUMNS = 16384`、`MAX_ROWS = 1048576`
+- 超限行为：`OverflowBehavior::Error` 返回 `XlsbError::LimitExceeded`；`Cut` 截断到上限
+- 配置是全局的，每次写入操作开始时快照，只影响之后的操作
+- 批量写、流式写、模板填充均受同一策略约束
+
 ## 5. CellData 类型
 
 ```rust

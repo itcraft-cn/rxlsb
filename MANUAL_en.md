@@ -90,6 +90,25 @@ let cell = CellData::time(1714560000);             // 10:40:00
 let cell = CellData::number_with_format(123.45, "#,##0.00"); // custom
 ```
 
+### 4.4 Row/Column Limits and Compression
+
+```rust
+use rxlsb::{set_overflow, OverflowBehavior, XlsbWriter};
+
+// Cut on column overflow, error on row overflow (global, snapshotted per write)
+set_overflow(OverflowBehavior::Cut, OverflowBehavior::Error);
+
+let mut writer = XlsbWriter::builder()
+    .path("output.xlsb")
+    .compression_level(6)   // 0=store, 1-9=deflate; default 1
+    .build()?;
+```
+
+- Limits: `MAX_COLUMNS = 16384`, `MAX_ROWS = 1048576`
+- `OverflowBehavior::Error` returns `XlsbError::LimitExceeded`; `Cut` truncates to the limit
+- Configuration is global and snapshotted when each write operation starts
+- Batch writes, streaming writes and template filling share the same policy
+
 ## 5. CellData Types
 
 ```rust

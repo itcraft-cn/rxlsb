@@ -19,6 +19,8 @@
 - **类型安全**: Rust类型系统保证，无运行时错误
 - **数字格式**: 百分比、货币、千分位、日期、时间、负数标红
 - **自定义格式**: 灵活的自定义数字格式支持
+- **行列上限策略**: 16384 列 × 1048576 行，`Error` / `Cut` 可选
+- **压缩级别可调**: ZIP 压缩 0-9，默认 1（速度优先）
 
 ## 性能对比
 
@@ -127,6 +129,8 @@ pub enum CellData {
 
 - `write_batch`: 批量写入整个sheet，适合中小数据量
 - `start_sheet / write_rows / end_sheet`: 流式写入，适合大数据量
+- `set_overflow / OverflowBehavior`: 全局行列溢出策略（`Error` 报错 / `Cut` 截断），每次写入开始时快照
+- `XlsbWriterBuilder::compression_level`: ZIP 压缩级别 0-9，默认 1
 
 ### 读取API
 

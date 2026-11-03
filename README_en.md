@@ -19,6 +19,8 @@ Viewed from this narrow, output-oriented angle, XLSX is simply not needed — XL
 - **Type Safe**: Rust type system guarantees, no runtime errors
 - **Number Formats**: Percentage, currency, thousand separator, date, time, negative red
 - **Custom Formats**: Flexible custom number format support
+- **Row/Column Limit Policy**: 16384 columns × 1048576 rows, `Error` or `Cut`
+- **Configurable Compression**: ZIP level 0-9, default 1 (speed first)
 
 ## Performance Comparison
 
@@ -127,6 +129,8 @@ pub enum CellData {
 
 - `write_batch`: Batch write entire sheet, suitable for small-medium data
 - `start_sheet / write_rows / end_sheet`: Stream write, suitable for large data
+- `set_overflow / OverflowBehavior`: Global row/column overflow policy (`Error` / `Cut`), snapshotted per write
+- `XlsbWriterBuilder::compression_level`: ZIP compression level 0-9, default 1
 
 ### Read API
 
