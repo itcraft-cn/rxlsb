@@ -16,7 +16,8 @@
   - `OverflowBehavior::{Error, Cut}`；`Cut` 截断到上限，`Error` 返回 `XlsbError::LimitExceeded`
   - 常量 `MAX_COLUMNS = 16384`、`MAX_ROWS = 1048576`
   - 内部以 `OverflowPolicy` trait 做策略模式（`ErrorPolicy` / `CutPolicy`），每次写入按当前配置选择实现
-  - 覆盖 `write_batch`、`write_batch_owned`、`start_sheet`/`write_rows`
+  - 限制解析下沉到 `SheetWriter`/`SheetLimits` 底层，统一覆盖 `write_batch`、
+    `write_batch_owned`、`start_sheet`/`write_rows` 以及 **模板填充**（`TemplateFiller`）
 - 新增示例 `examples/wide_cols.rs`（>1024 列、error/cut 演示）与 `tests/limits_test.rs`
 
 ### 变更

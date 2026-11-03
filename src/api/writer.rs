@@ -77,8 +77,8 @@ struct StreamingState {
     rows: crate::io::BufferWriter,
     /// 维度记录中 last_row 字段的字节偏移，结束时回填。
     dim_last_row_off: usize,
-    /// start_sheet 时快照的行溢出策略。
-    row_policy: &'static dyn crate::limits::OverflowPolicy,
+    /// start_sheet 时快照的维度限制。
+    limits: crate::limits::SheetLimits,
 }
 
 impl XlsbWriter {
@@ -132,12 +132,12 @@ impl XlsbWriter {
     pub fn write_batch(&mut self, sheet_name: &str,
                        supplier: impl CellSupplier,
                        row_count: usize, col_count: usize) -> Result<()> {
-        // 开始时快照溢出策略，仅影响本次调用。
-        let col_count = crate::limits::column_policy().columns(col_count)?;
-        let row_count = crate::limits::row_policy().rows(0, row_count)?;
+        // 预估文本量，预留 SST 容量（按上限截断，避免异常大请求导致过度预留）。
+        let est_rows = row_count.min(crate::limits::MAX_ROWS);
+        let est_cols = col_count.min(crate::limits::MAX_COLUMNS);
+        self.sst.reserve(est_rows.saturating_mul(est_cols) / 3);
 
-        // 预估文本量，预留 SST 容量，避免写入过程中反复 rehash/扩容。
-        self.sst.reserve(row_count.saturating_mul(col_count) / 3);
+        // 维度限制在底层 SheetWriter 入口统一解析。
         let mut sheet_writer = SheetWriter::new(&mut self.sst, &mut self.styles);
         sheet_writer.write_batch(supplier, row_count, col_count)?;
         
@@ -158,9 +158,9 @@ impl XlsbWriter {
             return Err(XlsbError::InvalidState("Previous sheet not ended, call end_sheet() first".into()));
         }
 
-        // 开始时快照策略：列在本次解析，行策略存起来供后续 write_rows 使用。
-        let col_count = crate::limits::column_policy().columns(col_count)?;
-        let row_policy = crate::limits::row_policy();
+        // 开始时快照维度限制（列解析 + 行策略），供本 sheet 后续写入使用。
+        let limits = crate::limits::SheetLimits::begin(col_count)?;
+        let col_count = limits.columns();
 
         // 先写入前导记录（维度暂以 0 行占位），记录 last_row 偏移以便结束时回填。
         let Self { sst, styles, streaming, .. } = self;
@@ -174,7 +174,7 @@ impl XlsbWriter {
             max_row: 0,
             rows: sheet_writer.into_buffer(),
             dim_last_row_off,
-            row_policy,
+            limits,
         });
         Ok(())
     }
@@ -196,7 +196,7 @@ impl XlsbWriter {
             .ok_or_else(|| XlsbError::InvalidState("Sheet not started, call start_sheet() first".into()))?;
 
         // 使用 start_sheet 时的行策略快照处理本批次。
-        let row_count = st.row_policy.rows(start_row, row_count)?;
+        let row_count = st.limits.rows(start_row, row_count)?;
         if row_count == 0 {
             return Ok(());
         }

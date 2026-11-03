@@ -1,7 +1,9 @@
 use rxlsb::{
     column_overflow, row_overflow, set_column_overflow, set_overflow, set_row_overflow, CellData,
-    OverflowBehavior, XlsbError, XlsbReader, XlsbWriter, MAX_COLUMNS, MAX_ROWS,
+    OverflowBehavior, TemplateFiller, XlsbError, XlsbReader, XlsbWriter, MAX_COLUMNS, MAX_ROWS,
 };
+
+const TEMPLATE: &str = "tests/resources/template/demo_template.xlsb";
 
 fn supplier(_r: usize, c: usize) -> CellData {
     CellData::number(c as f64)
@@ -99,6 +101,40 @@ fn limits_strategy_and_override() {
         set_row_overflow(OverflowBehavior::Cut); // 之后才改为 Cut
         let err = w.write_rows(supplier, MAX_ROWS - 1, 5).unwrap_err();
         assert!(matches!(err, XlsbError::LimitExceeded { .. }));
+    }
+
+    // 模板填充同样走底层限制：Cut 截断、Error 报错
+    set_overflow(OverflowBehavior::Cut, OverflowBehavior::Error);
+    {
+        let out = "/tmp/limits_template_cut.xlsb";
+        let _ = std::fs::remove_file(out);
+        let mut f = TemplateFiller::builder()
+            .template(TEMPLATE)
+            .output(out)
+            .build()
+            .unwrap();
+        f.fill_batch(0, 12, MAX_COLUMNS as u32 - 2, supplier, 1, 10).unwrap();
+        f.save().unwrap();
+        assert!(std::path::Path::new(out).exists());
+        let _ = std::fs::remove_file(out);
+    }
+
+    set_column_overflow(OverflowBehavior::Error);
+    {
+        let out = "/tmp/limits_template_error.xlsb";
+        let _ = std::fs::remove_file(out);
+        let mut f = TemplateFiller::builder()
+            .template(TEMPLATE)
+            .output(out)
+            .build()
+            .unwrap();
+        f.fill_batch(0, 12, MAX_COLUMNS as u32 - 2, supplier, 1, 10).unwrap();
+        let err = f.save().unwrap_err();
+        match err {
+            XlsbError::LimitExceeded { dimension, .. } => assert_eq!(dimension, "columns"),
+            other => panic!("unexpected error: {other:?}"),
+        }
+        let _ = std::fs::remove_file(out);
     }
 
     // 还原默认，避免影响其他测试

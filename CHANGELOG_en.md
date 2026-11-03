@@ -20,7 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Constants `MAX_COLUMNS = 16384`, `MAX_ROWS = 1048576`
   - Implemented via an internal `OverflowPolicy` trait with `ErrorPolicy` / `CutPolicy`;
     each write selects an impl based on the current config
-  - Applies to `write_batch`, `write_batch_owned`, `start_sheet`/`write_rows`
+  - Resolution lives at the low-level `SheetWriter`/`SheetLimits`, uniformly covering
+    `write_batch`, `write_batch_owned`, `start_sheet`/`write_rows`, and **template
+    filling** (`TemplateFiller`)
 - New `examples/wide_cols.rs` (>1024 columns, error/cut demo) and `tests/limits_test.rs`
 
 ### Changed

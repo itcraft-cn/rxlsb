@@ -152,3 +152,34 @@ pub(crate) fn column_policy() -> &'static dyn OverflowPolicy {
 pub(crate) fn row_policy() -> &'static dyn OverflowPolicy {
     policy_of(row_overflow())
 }
+
+/// 底层维度限制快照：在所有写入路径（批量/流式/模板）开始时创建一次。
+///
+/// 创建时解析列数并快照行策略，之后的写入都通过本对象判断，保证“只对设置后的行为生效”。
+#[derive(Clone, Copy)]
+pub(crate) struct SheetLimits {
+    columns: usize,
+    row_policy: &'static dyn OverflowPolicy,
+}
+
+impl SheetLimits {
+    /// 开始一次 sheet 写入：解析起始列数并快照行策略。
+    pub(crate) fn begin(requested_columns: usize) -> Result<Self> {
+        Ok(Self {
+            columns: column_policy().columns(requested_columns)?,
+            row_policy: row_policy(),
+        })
+    }
+
+    /// 本次实际使用的列数（可能被截断）。
+    #[inline]
+    pub(crate) fn columns(&self) -> usize {
+        self.columns
+    }
+
+    /// 解析行区间，返回本次实际使用的行数（可能被截断）。
+    #[inline]
+    pub(crate) fn rows(&self, start_row: usize, requested: usize) -> Result<usize> {
+        self.row_policy.rows(start_row, requested)
+    }
+}

@@ -277,13 +277,18 @@ impl TemplateFiller {
         
         Self::write_ws_prop(&mut writer);
         
-        let max_row = parser.max_row.max(
+        let requested_rows = parser.max_row.max(
             fill.map(|f| f.start_row + f.row_count - 1).unwrap_or(0)
-        );
-        let max_col = parser.max_col.max(
+        ) as usize + 1;
+        let requested_cols = parser.max_col.max(
             fill.map(|f| f.start_col + f.col_count - 1).unwrap_or(0)
-        );
-        
+        ) as usize + 1;
+
+        // 底层维度限制：与批量/流式写入使用同一策略（模板填充也受控）。
+        let limits = crate::limits::SheetLimits::begin(requested_cols)?;
+        let max_col = limits.columns().saturating_sub(1) as u32;
+        let max_row = limits.rows(0, requested_rows)?.saturating_sub(1) as u32;
+
         Self::write_ws_dim(&mut writer, 0, max_row, 0, max_col);
         Self::write_ws_views(&mut writer);
         Self::write_ws_fmt_info(&mut writer);
@@ -297,7 +302,7 @@ impl TemplateFiller {
             if let Some(f) = fill {
                 if row >= f.start_row && row < f.start_row + f.row_count {
                     for cell in &parser.cells {
-                        if cell.row == row {
+                        if cell.row == row && cell.col <= max_col {
                             if cell.col < f.start_col || cell.col >= f.start_col + f.col_count {
                                 Self::write_template_cell(&mut writer, &cell, &mut self.sst);
                             }
@@ -305,10 +310,13 @@ impl TemplateFiller {
                     }
                     
                     let data_row = (row - f.start_row) as usize;
-                    for col in f.start_col..f.start_col + f.col_count {
-                        let data_col = (col - f.start_col) as usize;
-                        if data_row < f.data.len() && data_col < f.data[data_row].len() {
-                            Self::write_cell(&mut writer, col, &f.data[data_row][data_col], &mut self.sst)?;
+                    if f.start_col <= max_col {
+                        let last = (f.start_col + f.col_count - 1).min(max_col);
+                        for col in f.start_col..=last {
+                            let data_col = (col - f.start_col) as usize;
+                            if data_row < f.data.len() && data_col < f.data[data_row].len() {
+                                Self::write_cell(&mut writer, col, &f.data[data_row][data_col], &mut self.sst)?;
+                            }
                         }
                     }
                     continue;
@@ -316,7 +324,7 @@ impl TemplateFiller {
             }
             
             for cell in &parser.cells {
-                if cell.row == row {
+                if cell.row == row && cell.col <= max_col {
                     Self::write_template_cell(&mut writer, &cell, &mut self.sst);
                 }
             }

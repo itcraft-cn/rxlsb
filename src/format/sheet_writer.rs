@@ -121,7 +121,11 @@ impl<'a> SheetWriter<'a> {
     
     pub fn write_batch(&mut self, supplier: impl CellSupplier,
                        row_count: usize, col_count: usize) -> Result<()> {
-        self.buffer.ensure_capacity(row_count * col_count * 22 + 2048);
+        let limits = crate::limits::SheetLimits::begin(col_count)?;
+        let col_count = limits.columns();
+        let row_count = limits.rows(0, row_count)?;
+
+        self.buffer.ensure_capacity(row_count.saturating_mul(col_count).saturating_mul(22) + 2048);
         self.write_prologue(row_count, col_count)?;
 
         for row in 0..row_count {
@@ -144,11 +148,12 @@ impl<'a> SheetWriter<'a> {
     ///
     /// 供流式写入在 `end_sheet` 时使用：`rows` 会被消费，文本串直接移入 SST。
     pub fn write_batch_owned(&mut self, mut rows: Vec<Vec<CellData>>, col_count: usize) -> Result<()> {
-        let col_count = crate::limits::column_policy().columns(col_count)?;
-        let row_count = crate::limits::row_policy().rows(0, rows.len())?;
+        let limits = crate::limits::SheetLimits::begin(col_count)?;
+        let col_count = limits.columns();
+        let row_count = limits.rows(0, rows.len())?;
         rows.truncate(row_count);
         let row_count = rows.len();
-        self.buffer.ensure_capacity(row_count * col_count * 22 + 2048);
+        self.buffer.ensure_capacity(row_count.saturating_mul(col_count).saturating_mul(22) + 2048);
         self.write_prologue(row_count, col_count)?;
 
         for (row, row_cells) in rows.into_iter().enumerate() {
