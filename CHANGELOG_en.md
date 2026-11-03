@@ -39,7 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no `Arc` overhead)
 - SST supports chunked streaming writes (flush every 64 KiB) to reduce intermediate
   buffering
-- SST uses an **ASCII fast-path UTF-8 → UTF-16 encoder**, avoiding `encode_utf16`
+- SST uses an **ASCII fast-path UTF-8 → UTF-16 encoder (u64 batching)**, avoiding `encode_utf16`
   iterator overhead
 - SST dedup index uses an **identity hasher** (keys are already FNV-1a digests, so no
   second SipHash)

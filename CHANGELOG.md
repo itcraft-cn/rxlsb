@@ -33,7 +33,7 @@
 - `write_batch` 预留 SST 容量，避免写入中反复 rehash/扩容
 - SST 改为「移动存储 + 哈希索引（FNV-1a）」，每个唯一字符串仅一次分配，去掉 `Arc` 开销
 - SST 支持分块流式压缩写入（累积 64 KiB 再写入），减少中间缓冲
-- SST 使用 **ASCII 快速路径的 UTF-8→UTF-16 编码**，避免 `encode_utf16` 迭代器开销
+- SST 使用 **ASCII 快路径的 UTF-8→UTF-16 编码（u64 批量）**，避免 `encode_utf16` 迭代器与逐字符开销
 - SST 去重索引使用**恒等哈希器**（键已是 FNV-1a 结果，省去二次 SipHash）
 - 流式写入改为**增量编码行记录**：`write_rows` 直接写入行记录缓冲，不再缓存整张
   `Vec<Vec<CellData>>`

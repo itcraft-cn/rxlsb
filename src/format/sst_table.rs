@@ -70,13 +70,33 @@ fn push_varsize(buf: &mut Vec<u8>, mut value: u32) {
     }
 }
 
-/// 高效的 UTF-8 → UTF-16 追加。ASCII 走快路径，避免 `encode_utf16` 迭代器开销。
+/// 高效的 UTF-8 → UTF-16 追加。ASCII 走 u64 批量快路径，避免逐字符迭代开销。
 #[inline]
 fn encode_utf16_into(s: &str, out: &mut Vec<u16>) {
     out.reserve(s.len());
     let bytes = s.as_bytes();
+    let len = bytes.len();
     let mut i = 0;
-    while i < bytes.len() {
+
+    // 一次处理 8 个字节；全部为 ASCII 时批量写入 8 个 u16。
+    while i + 8 <= len {
+        let word = u64::from_le_bytes([
+            bytes[i], bytes[i + 1], bytes[i + 2], bytes[i + 3],
+            bytes[i + 4], bytes[i + 5], bytes[i + 6], bytes[i + 7],
+        ]);
+        if word & 0x8080_8080_8080_8080 == 0 {
+            let mut buf = [0u16; 8];
+            for k in 0..8 {
+                buf[k] = bytes[i + k] as u16;
+            }
+            out.extend_from_slice(&buf);
+            i += 8;
+        } else {
+            break;
+        }
+    }
+
+    while i < len {
         let b = bytes[i];
         if b < 0x80 {
             out.push(b as u16);
