@@ -448,7 +448,10 @@ impl<'a> SheetWriter<'a> {
         b[1] = 12;
         b[2..6].copy_from_slice(&col.to_le_bytes());
         put_u24(&mut b[6..9], style_idx);
-        let rk = ((value as f64).to_bits() >> 32) as u32;
+        // 标准 RK 整数形式：num(30 位有符号)<<2 | fInt(bit1)=1。
+        // 注意：直接取 f64 高 32 位并不可靠——其低 2 位在大整数上可能非 0，
+        // 会被解码器误判为 fInt/fX100 标志。
+        let rk = ((value as u32) << 2) | 0x02;
         b[10..14].copy_from_slice(&rk.to_le_bytes());
         self.buffer.write_bytes(&b);
         Ok(())

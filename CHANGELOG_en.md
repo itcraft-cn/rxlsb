@@ -40,6 +40,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed `BrtCellBool` reading: skip the flags byte (desync after flags were added)
+- **RK encoding now uses the standard integer form** `(n as u32) << 2 | 0x02`: the old
+  implementation took the high 32 bits of the f64 directly, whose low 2 bits can be non-zero
+  for large integers (e.g. `536870911`), making decoders misread fInt/fX100
 - Read test data column 4 changed from blank to a real value (aligned with
   skip-blank-cell semantics)
 
