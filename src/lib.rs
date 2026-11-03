@@ -66,7 +66,12 @@ mod container;
 mod format;
 mod data;
 mod api;
+pub mod limits;
 
 pub use error::{XlsbError, Result};
 pub use api::{CellData, CellError, XlsbReader, XlsbWriter, TemplateFiller};
 pub use data::SheetInfo;
+pub use limits::{
+    column_overflow, row_overflow, set_column_overflow, set_overflow, set_row_overflow,
+    OverflowBehavior, OverflowPolicy, MAX_COLUMNS, MAX_ROWS,
+};

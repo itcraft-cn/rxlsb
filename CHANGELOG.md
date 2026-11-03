@@ -9,6 +9,16 @@
 
 ## [未发布]
 
+### 新增
+
+- **行列上限溢出策略**（全局、随时可配置，操作开始时快照，仅影响之后的行为）：
+  - `set_column_overflow` / `set_row_overflow` 分别配置列/行；`set_overflow` 一次性配置两者；按维度后设置覆盖先设置
+  - `OverflowBehavior::{Error, Cut}`；`Cut` 截断到上限，`Error` 返回 `XlsbError::LimitExceeded`
+  - 常量 `MAX_COLUMNS = 16384`、`MAX_ROWS = 1048576`
+  - 内部以 `OverflowPolicy` trait 做策略模式（`ErrorPolicy` / `CutPolicy`），每次写入按当前配置选择实现
+  - 覆盖 `write_batch`、`write_batch_owned`、`start_sheet`/`write_rows`
+- 新增示例 `examples/wide_cols.rs`（>1024 列、error/cut 演示）与 `tests/limits_test.rs`
+
 ### 变更
 
 - 文档：新增「设计定位」章节

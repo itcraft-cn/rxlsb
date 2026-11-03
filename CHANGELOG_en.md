@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Row/column overflow policy** (global, settable at any time; snapshotted at the
+  start of each write so changes only affect later operations):
+  - `set_column_overflow` / `set_row_overflow` configure columns/rows separately;
+    `set_overflow` sets both at once; per-dimension last-write-wins
+  - `OverflowBehavior::{Error, Cut}`; `Cut` clamps to the limit, `Error` returns
+    `XlsbError::LimitExceeded`
+  - Constants `MAX_COLUMNS = 16384`, `MAX_ROWS = 1048576`
+  - Implemented via an internal `OverflowPolicy` trait with `ErrorPolicy` / `CutPolicy`;
+    each write selects an impl based on the current config
+  - Applies to `write_batch`, `write_batch_owned`, `start_sheet`/`write_rows`
+- New `examples/wide_cols.rs` (>1024 columns, error/cut demo) and `tests/limits_test.rs`
+
 ### Changed
 
 - Documentation: added "Design Positioning" section

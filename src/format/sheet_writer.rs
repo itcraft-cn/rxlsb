@@ -143,7 +143,10 @@ impl<'a> SheetWriter<'a> {
     /// 从「按所有权持有的行数据」直接写入，避免每个单元格再 clone 一次。
     ///
     /// 供流式写入在 `end_sheet` 时使用：`rows` 会被消费，文本串直接移入 SST。
-    pub fn write_batch_owned(&mut self, rows: Vec<Vec<CellData>>, col_count: usize) -> Result<()> {
+    pub fn write_batch_owned(&mut self, mut rows: Vec<Vec<CellData>>, col_count: usize) -> Result<()> {
+        let col_count = crate::limits::column_policy().columns(col_count)?;
+        let row_count = crate::limits::row_policy().rows(0, rows.len())?;
+        rows.truncate(row_count);
         let row_count = rows.len();
         self.buffer.ensure_capacity(row_count * col_count * 22 + 2048);
         self.write_prologue(row_count, col_count)?;

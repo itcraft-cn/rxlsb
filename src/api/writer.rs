@@ -77,6 +77,8 @@ struct StreamingState {
     rows: crate::io::BufferWriter,
     /// 维度记录中 last_row 字段的字节偏移，结束时回填。
     dim_last_row_off: usize,
+    /// start_sheet 时快照的行溢出策略。
+    row_policy: &'static dyn crate::limits::OverflowPolicy,
 }
 
 impl XlsbWriter {
@@ -130,6 +132,10 @@ impl XlsbWriter {
     pub fn write_batch(&mut self, sheet_name: &str,
                        supplier: impl CellSupplier,
                        row_count: usize, col_count: usize) -> Result<()> {
+        // 开始时快照溢出策略，仅影响本次调用。
+        let col_count = crate::limits::column_policy().columns(col_count)?;
+        let row_count = crate::limits::row_policy().rows(0, row_count)?;
+
         // 预估文本量，预留 SST 容量，避免写入过程中反复 rehash/扩容。
         self.sst.reserve(row_count.saturating_mul(col_count) / 3);
         let mut sheet_writer = SheetWriter::new(&mut self.sst, &mut self.styles);
@@ -152,6 +158,10 @@ impl XlsbWriter {
             return Err(XlsbError::InvalidState("Previous sheet not ended, call end_sheet() first".into()));
         }
 
+        // 开始时快照策略：列在本次解析，行策略存起来供后续 write_rows 使用。
+        let col_count = crate::limits::column_policy().columns(col_count)?;
+        let row_policy = crate::limits::row_policy();
+
         // 先写入前导记录（维度暂以 0 行占位），记录 last_row 偏移以便结束时回填。
         let Self { sst, styles, streaming, .. } = self;
         let mut sheet_writer =
@@ -164,6 +174,7 @@ impl XlsbWriter {
             max_row: 0,
             rows: sheet_writer.into_buffer(),
             dim_last_row_off,
+            row_policy,
         });
         Ok(())
     }
@@ -184,8 +195,14 @@ impl XlsbWriter {
         let st = streaming.as_mut()
             .ok_or_else(|| XlsbError::InvalidState("Sheet not started, call start_sheet() first".into()))?;
 
+        // 使用 start_sheet 时的行策略快照处理本批次。
+        let row_count = st.row_policy.rows(start_row, row_count)?;
+        if row_count == 0 {
+            return Ok(());
+        }
+
         let col_count = st.col_count;
-        st.rows.ensure_capacity(row_count * col_count * 22 + 2048);
+        st.rows.ensure_capacity(row_count.saturating_mul(col_count).saturating_mul(22) + 2048);
         let mut sheet_writer = SheetWriter::with_buffer(
             std::mem::replace(&mut st.rows, crate::io::BufferWriter::new(0)),
             sst,

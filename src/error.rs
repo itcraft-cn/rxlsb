@@ -46,6 +46,13 @@ pub enum XlsbError {
     
     #[error("无效状态: {0}")]
     InvalidState(String),
+
+    #[error("{dimension} 超过 Excel 上限: 请求 {requested}, 上限 {limit}")]
+    LimitExceeded {
+        dimension: &'static str,
+        requested: usize,
+        limit: usize,
+    },
 }
 
 pub type Result<T> = std::result::Result<T, XlsbError>;
