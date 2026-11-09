@@ -105,7 +105,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rxlsb = "0.2"
+rxlsb = "0.4"
 ```
 
 ## API Overview
@@ -173,7 +173,7 @@ Verified test files available in `/tmp/`:
 - ✅ API documentation complete
 - ✅ Streaming API fully tested (start/write/end)
 - ✅ BIFF12 format correctly implemented
-- 🚧 Formula cells support (planned for v0.4.0)
+- 🚧 Formula cells support (planned for v0.5.0)
 - 🚧 Rich text cells support
 - 🚧 Chart support
 

@@ -105,7 +105,7 @@ println!("Read {} rows", rows.len());
 
 ```toml
 [dependencies]
-rxlsb = "0.2"
+rxlsb = "0.4"
 ```
 
 ## API概览
@@ -173,7 +173,7 @@ rxlsb已通过WPS Office和Microsoft Excel完整验证：
 - ✅ API文档完整
 - ✅ 流式API完整测试（start/write/end）
 - ✅ BIFF12格式正确实现
-- 🚧 公式单元格支持（计划v0.4.0版本）
+- 🚧 公式单元格支持（计划v0.5.0版本）
 - 🚧 富文本单元格支持
 - 🚧 图表支持
 

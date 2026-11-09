@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- None yet
+
+## [0.4.0] - 2026-11-09
+
 ### Added
 
 - **Row/column overflow policy** (global, settable at any time; snapshotted at the
@@ -28,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Documentation: added "Design Positioning" section
-- Version: moved to 0.4.0-dev
+- Version: 0.4.0
 - **Default deflate level is now 1 (speed-first)**: matches mainstream spreadsheet
   libraries; file size is on par with peers at the same level. Use
   `XlsbWriterBuilder::compression_level(6)` or `XlsbWriter::set_compression_level(6)`
@@ -352,7 +356,7 @@ CellData::time(1714560000)                  // 10:40:00
 
 ## Future Plans
 
-### [0.4.0] - Planned
+### [0.5.0] - Planned
 
 - Formula cell support
 - Rich text cell support
@@ -369,4 +373,5 @@ CellData::time(1714560000)                  // 10:40:00
 | 0.1.0 | 2026-04-30 | Initial release, core read/write, template filling |
 | 0.2.0 | 2026-05-01 | Number formats (percentage, currency, date, time), styleIndex mapping |
 | 0.3.0 | 2026-05-07 | WPS/Excel 100% compatibility, BIFF12 format fixes, streaming API complete |
-| 0.4.0 | TBD | Formula, rich text, advanced styles, charts, pivot tables |
+| 0.4.0 | 2026-11-09 | Row/column limits, compression level, read/write performance, WPS fixes |
+| 0.5.0 | TBD | Formula, rich text, advanced styles, charts, pivot tables |

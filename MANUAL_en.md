@@ -151,7 +151,7 @@ pub enum CellData {
 
 ## 9. Limitations & Roadmap
 
-- No formula, rich text or chart support yet (v0.4.0 plans formula and advanced styles)
+- No formula, rich text or chart support yet (v0.5.0 plans formula and advanced styles)
 - Only basic styles for now
 
 ## 10. Further Docs
